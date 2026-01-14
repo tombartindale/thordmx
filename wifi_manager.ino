@@ -3,32 +3,40 @@
  * Handles AP mode, station mode, SmartConfig, and reconnection logic
  */
 
-void wifiTask(void* parameter) {
+void wifiTask(void *parameter)
+{
   bool ap_mode = false;
   unsigned long connect_start = 0;
   unsigned long smartconfig_start = 0;
   bool smartconfig_active = false;
 
-  while (true) {
+  while (true)
+  {
     // Check if we have WiFi credentials
-    if (config.wifi_ssid.length() == 0) {
+    if (config.wifi_ssid.length() == 0)
+    {
       // No credentials, enter AP mode
-      if (!ap_mode) {
+      if (!ap_mode)
+      {
         Serial.println("[WiFi] No credentials found, entering AP mode");
         startAPMode();
         ap_mode = true;
+        state.ap_mode_active = true;
         led_state = LED_AP_MODE;
-        // smartconfig_active = true;
+        smartconfig_active = true;
         smartconfig_start = millis();
       }
 
       // Listen for SmartConfig while in AP mode
-      if (smartconfig_active) {
-        if (WiFi.smartConfigDone()) {
+      if (smartconfig_active)
+      {
+        if (WiFi.smartConfigDone())
+        {
           Serial.println("[WiFi] SmartConfig: credentials received!");
 
           // Flash LED green twice
-          for (int i = 0; i < 2; i++) {
+          for (int i = 0; i < 2; i++)
+          {
             leds[0] = CRGB::Green;
             FastLED.show();
             delay(100);
@@ -48,16 +56,21 @@ void wifiTask(void* parameter) {
         }
 
         // Check SmartConfig timeout
-        if (millis() - smartconfig_start > SMARTCONFIG_TIMEOUT_MS) {
+        if (millis() - smartconfig_start > SMARTCONFIG_TIMEOUT_MS)
+        {
           Serial.println("[WiFi] SmartConfig timeout, restarting listener");
           smartconfig_start = millis();
           WiFi.beginSmartConfig();
         }
       }
-    } else {
+    }
+    else
+    {
       // Have credentials, try to connect
-      if (!state.wifi_connected) {
-        if (connect_start == 0) {
+      if (!state.wifi_connected)
+      {
+        if (connect_start == 0)
+        {
           // Start connection attempt
           Serial.printf("[WiFi] Connecting to: %s\n", config.wifi_ssid.c_str());
           WiFi.mode(WIFI_STA);
@@ -68,7 +81,8 @@ void wifiTask(void* parameter) {
         }
 
         // Check connection status
-        if (WiFi.status() == WL_CONNECTED) {
+        if (WiFi.status() == WL_CONNECTED)
+        {
           state.wifi_connected = true;
           Serial.println("[WiFi] Connected!");
           Serial.printf("  IP: %s\n", WiFi.localIP().toString().c_str());
@@ -82,12 +96,16 @@ void wifiTask(void* parameter) {
           led_state = LED_CONNECTED;
           connect_start = 0;
           ap_mode = false;
-        } else if (millis() - connect_start > AP_TIMEOUT_MS) {
+          state.ap_mode_active = false;
+        }
+        else if (millis() - connect_start > AP_TIMEOUT_MS)
+        {
           // Connection timeout, fall back to AP mode
           Serial.println("[WiFi] Connection timeout, entering AP mode");
           WiFi.disconnect();
           startAPMode();
           ap_mode = true;
+          state.ap_mode_active = true;
           led_state = LED_AP_MODE;
           connect_start = 0;
 
@@ -96,9 +114,12 @@ void wifiTask(void* parameter) {
           smartconfig_start = millis();
           WiFi.beginSmartConfig();
         }
-      } else {
+      }
+      else
+      {
         // Connected, monitor connection
-        if (WiFi.status() != WL_CONNECTED) {
+        if (WiFi.status() != WL_CONNECTED)
+        {
           Serial.println("[WiFi] Connection lost!");
           state.wifi_connected = false;
           led_state = LED_ERROR;
@@ -113,7 +134,8 @@ void wifiTask(void* parameter) {
   }
 }
 
-void startAPMode() {
+void startAPMode()
+{
   uint8_t mac[6];
   WiFi.macAddress(mac);
   String ap_ssid = String("DMX-Bridge-") +
@@ -130,8 +152,10 @@ void startAPMode() {
   setupAPI();
 }
 
-void startMDNS() {
-  if (MDNS.begin(config.device_name.c_str())) {
+void startMDNS()
+{
+  if (MDNS.begin(config.device_name.c_str()))
+  {
     Serial.printf("[mDNS] Started: %s.local\n", config.device_name.c_str());
 
     // Advertise service
@@ -139,7 +163,9 @@ void startMDNS() {
     MDNS.addServiceTxt("_sacn-dmx", "_tcp", "universe", String(config.sacn_universe));
     MDNS.addServiceTxt("_sacn-dmx", "_tcp", "mac", getMacAddress());
     MDNS.addServiceTxt("_sacn-dmx", "_tcp", "version", FIRMWARE_VERSION);
-  } else {
+  }
+  else
+  {
     Serial.println("[mDNS] Failed to start");
   }
 }

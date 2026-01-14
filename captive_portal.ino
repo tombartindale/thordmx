@@ -133,19 +133,20 @@ const char CAPTIVE_PORTAL_HTML[] PROGMEM = R"=====(
 </html>
 )=====";
 
-void handleCaptivePortal() {
+void handleCaptivePortal()
+{
   String html = String(CAPTIVE_PORTAL_HTML);
   html.replace("{{VERSION}}", FIRMWARE_VERSION);
   html.replace("{{DEVICE_NAME}}", config.device_name);
   html.replace("{{MAC_ADDRESS}}", getMacAddress());
 
-  Serial.println("[HTTP] Sending CP page");
-
   server.send(200, "text/html", html);
 }
 
-void handleCaptivePortalSubmit() {
-  if (!server.hasArg("ssid") || !server.hasArg("password") || !server.hasArg("universe")) {
+void handleCaptivePortalSubmit()
+{
+  if (!server.hasArg("ssid") || !server.hasArg("password") || !server.hasArg("universe"))
+  {
     server.send(400, "text/plain", "Missing required fields");
     return;
   }
@@ -155,18 +156,21 @@ void handleCaptivePortalSubmit() {
   String universe_str = server.arg("universe");
 
   // Validate inputs
-  if (ssid.length() == 0 || ssid.length() > 32) {
+  if (ssid.length() == 0 || ssid.length() > 32)
+  {
     server.send(400, "text/plain", "Invalid SSID length");
     return;
   }
 
-  if (password.length() < 8 || password.length() > 63) {
+  if (password.length() < 8 || password.length() > 63)
+  {
     server.send(400, "text/plain", "Password must be 8-63 characters");
     return;
   }
 
   uint16_t universe = universe_str.toInt();
-  if (universe < 1 || universe > 63999) {
+  if (universe < 1 || universe > 63999)
+  {
     server.send(400, "text/plain", "Universe must be 1-63999");
     return;
   }

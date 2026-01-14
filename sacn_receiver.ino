@@ -47,6 +47,8 @@ void onDMXFrame()
   state.sacn_source_name = String(sacn.name());
   state.sacn_priority = 100; // Not exposed by library
 
+  // Serial.printf("[sACN] Received frame\n");
+
   // Update DMX buffer (thread-safe)
   if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(10)) == pdTRUE)
   {

@@ -18,6 +18,10 @@ void dmxTask(void* parameter) {
       xSemaphoreGive(dmx_mutex);
     }
 
+    // Serial.write(local_buffer[1]);
+    // Serial.println(dmx_data[0]);
+    Serial.println(local_buffer[0]);
+
     // Send DMX packet using custom driver
     dmx.sendPacket(local_buffer, DMX_PACKET_SIZE);
 

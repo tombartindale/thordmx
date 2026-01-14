@@ -27,7 +27,7 @@
 #define FIRMWARE_VERSION "1.0.0"
 
 // Pin definitions
-#define DMX_TX_PIN 0
+#define DMX_TX_PIN 1
 #define LED_PIN 8
 
 // WiFi configuration
@@ -35,7 +35,6 @@
 #define SMARTCONFIG_TIMEOUT_MS 120000
 
 // DMX configuration
-#define DMX_PORT_NUM 1
 #define DMX_PACKET_SIZE 512
 
 // LED configuration
@@ -50,7 +49,8 @@ CRGB leds[NUM_LEDS];
 DMXDriver dmx(DMX_TX_PIN);
 
 // Configuration structure
-struct Config {
+struct Config
+{
   String wifi_ssid;
   String wifi_password;
   String device_name;
@@ -58,8 +58,10 @@ struct Config {
 } config;
 
 // Runtime state
-struct State {
+struct State
+{
   bool wifi_connected;
+  bool ap_mode_active;
   bool sacn_receiving;
   unsigned long sacn_packets_received;
   unsigned long sacn_packets_errors;
@@ -88,7 +90,8 @@ TaskHandle_t ledTaskHandle = NULL;
 TaskHandle_t serialTaskHandle = NULL;
 
 // LED state
-enum LEDState {
+enum LEDState
+{
   LED_OFF,
   LED_AP_MODE,
   LED_CONNECTING,
@@ -104,14 +107,15 @@ void setupAPI();
 void loadConfig();
 void saveConfig();
 String getResetReason();
-void wifiTask(void* parameter);
-void sacnTask(void* parameter);
-void dmxTask(void* parameter);
-void ledTask(void* parameter);
-void serialTask(void* parameter);
+void wifiTask(void *parameter);
+void sacnTask(void *parameter);
+void dmxTask(void *parameter);
+void ledTask(void *parameter);
+void serialTask(void *parameter);
 void onDMXFrame();
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   delay(100);
 
@@ -152,9 +156,12 @@ void setup() {
   dmx_mutex = xSemaphoreCreateMutex();
 
   // Initialize custom DMX driver
-  if (!dmx.begin()) {
+  if (!dmx.begin())
+  {
     Serial.println("[DMX] Failed to initialize DMX driver!");
-  } else {
+  }
+  else
+  {
     Serial.println("[DMX] DMX driver initialized");
   }
 
@@ -166,69 +173,88 @@ void setup() {
 
   // Create tasks (ESP32-C6 is single-core, use core 0 for all)
   xTaskCreate(wifiTask, "WiFi", 4096, NULL, 1, &wifiTaskHandle);
-  // xTaskCreate(sacnTask, "sACN", 4096, NULL, 2, &sacnTaskHandle);
-  // xTaskCreate(dmxTask, "DMX", 3072, NULL, 3, &dmxTaskHandle);
-  // xTaskCreate(ledTask, "LED", 2048, NULL, 0, &ledTaskHandle);
-  // xTaskCreate(serialTask, "Serial", 3072, NULL, 1, &serialTaskHandle);
+  xTaskCreate(sacnTask, "sACN", 4096, NULL, 2, &sacnTaskHandle);
+  xTaskCreate(dmxTask, "DMX", 3072, NULL, 3, &dmxTaskHandle);
+  xTaskCreate(ledTask, "LED", 2048, NULL, 0, &ledTaskHandle);
+  xTaskCreate(serialTask, "Serial", 3072, NULL, 1, &serialTaskHandle);
 
   Serial.println("Initialization complete\n");
 }
 
-void loop() {
-  // Main loop handles web server
-  if (state.wifi_connected) {
+void loop()
+{
+  // Main loop handles web server (both AP mode and station mode)
+  if (state.wifi_connected || state.ap_mode_active)
+  {
+    server.handleClient();
   }
-  server.handleClient();
 
   // Track minimum free heap
   size_t free_heap = ESP.getFreeHeap();
-  if (free_heap < state.min_free_heap) {
+  if (free_heap < state.min_free_heap)
+  {
     state.min_free_heap = free_heap;
   }
 
   delay(10);
 }
 
-void loadConfig() {
+void loadConfig()
+{
   config.wifi_ssid = prefs.getString("wifi_ssid", "");
   config.wifi_password = prefs.getString("wifi_pass", "");
   config.sacn_universe = prefs.getUShort("sacn_universe", 1);
 
   // Generate device name from MAC if not set
   String saved_name = prefs.getString("device_name", "");
-  if (saved_name.length() == 0) {
+  if (saved_name.length() == 0)
+  {
     uint8_t mac[6];
     WiFi.macAddress(mac);
     config.device_name = String("DMX-Bridge-") +
-                        String(mac[4], HEX) + String(mac[5], HEX);
+                         String(mac[4], HEX) + String(mac[5], HEX);
     config.device_name.toUpperCase();
-  } else {
+  }
+  else
+  {
     config.device_name = saved_name;
   }
 }
 
-void saveConfig() {
+void saveConfig()
+{
   prefs.putString("wifi_ssid", config.wifi_ssid);
   prefs.putString("wifi_pass", config.wifi_password);
   prefs.putString("device_name", config.device_name);
   prefs.putUShort("sacn_universe", config.sacn_universe);
 }
 
-String getResetReason() {
+String getResetReason()
+{
   esp_reset_reason_t reason = esp_reset_reason();
-  switch (reason) {
-    case ESP_RST_POWERON: return "power_on";
-    case ESP_RST_SW: return "software";
-    case ESP_RST_PANIC: return "crash";
-    case ESP_RST_INT_WDT: return "watchdog";
-    case ESP_RST_TASK_WDT: return "watchdog";
-    case ESP_RST_WDT: return "watchdog";
-    case ESP_RST_BROWNOUT: return "brownout";
-    default: return "unknown";
+  switch (reason)
+  {
+  case ESP_RST_POWERON:
+    return "power_on";
+  case ESP_RST_SW:
+    return "software";
+  case ESP_RST_PANIC:
+    return "crash";
+  case ESP_RST_INT_WDT:
+    return "watchdog";
+  case ESP_RST_TASK_WDT:
+    return "watchdog";
+  case ESP_RST_WDT:
+    return "watchdog";
+  case ESP_RST_BROWNOUT:
+    return "brownout";
+  default:
+    return "unknown";
   }
 }
 
-String getMacAddress() {
+String getMacAddress()
+{
   uint8_t mac[6];
   WiFi.macAddress(mac);
   char macStr[18];
@@ -237,9 +263,13 @@ String getMacAddress() {
   return String(macStr);
 }
 
-String getSignalQuality(int rssi) {
-  if (rssi > -50) return "excellent";
-  if (rssi > -60) return "good";
-  if (rssi > -70) return "fair";
+String getSignalQuality(int rssi)
+{
+  if (rssi > -50)
+    return "excellent";
+  if (rssi > -60)
+    return "good";
+  if (rssi > -70)
+    return "fair";
   return "poor";
 }
