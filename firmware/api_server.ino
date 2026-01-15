@@ -14,6 +14,9 @@ void setupAPI() {
   // Reboot endpoint
   server.on("/api/reboot", HTTP_POST, handleAPIReboot);
 
+  // Identify endpoint
+  server.on("/api/identify", HTTP_POST, handleAPIIdentify);
+
   // Firmware endpoints
   server.on("/api/firmware", HTTP_GET, handleAPIGetFirmware);
   server.on("/api/firmware", HTTP_POST, handleAPIPostFirmware, handleFirmwareUpload);
@@ -171,6 +174,37 @@ void handleAPIReboot() {
 
   delay(1000);
   ESP.restart();
+}
+
+void handleAPIIdentify() {
+  // Default 5 seconds, allow override via JSON body
+  uint16_t duration_seconds = 5;
+
+  if (server.hasArg("plain")) {
+    StaticJsonDocument<128> doc;
+    DeserializationError error = deserializeJson(doc, server.arg("plain"));
+    if (!error && doc.containsKey("duration")) {
+      duration_seconds = doc["duration"].as<uint16_t>();
+      // Clamp to reasonable range (1-30 seconds)
+      if (duration_seconds < 1) duration_seconds = 1;
+      if (duration_seconds > 30) duration_seconds = 30;
+    }
+  }
+
+  // Set identify end time and trigger LED state
+  identify_end_time = millis() + (duration_seconds * 1000);
+  led_state = LED_IDENTIFY;
+
+  StaticJsonDocument<128> doc;
+  doc["success"] = true;
+  doc["message"] = "Identifying device";
+  doc["duration_seconds"] = duration_seconds;
+
+  String response;
+  serializeJson(doc, response);
+  server.send(200, "application/json", response);
+
+  Serial.printf("[API] Identify triggered for %d seconds\n", duration_seconds);
 }
 
 void handleAPIGetFirmware() {

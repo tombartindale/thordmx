@@ -70,6 +70,23 @@ void ledTask(void* parameter) {
         FastLED.show();
         vTaskDelay(pdMS_TO_TICKS(20));
         break;
+
+      case LED_IDENTIFY:
+        // Fast flashing white/magenta for identification
+        if (millis() < identify_end_time) {
+          // Alternate between white and magenta every 200ms
+          if ((millis() / 200) % 2 == 0) {
+            leds[0] = CRGB::White;
+          } else {
+            leds[0] = CRGB::Magenta;
+          }
+          FastLED.show();
+          vTaskDelay(pdMS_TO_TICKS(50));
+        } else {
+          // Identify period ended, turn off
+          led_state = LED_OFF;
+        }
+        break;
     }
 
     vTaskDelay(pdMS_TO_TICKS(10));

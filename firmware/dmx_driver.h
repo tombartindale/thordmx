@@ -24,9 +24,6 @@ public:
 private:
   int _tx_pin;
   bool _initialized;
-
-  void sendBreak();
-  void sendMAB();
 };
 
 #endif // DMX_DRIVER_H

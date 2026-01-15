@@ -97,9 +97,11 @@ enum LEDState
   LED_CONNECTING,
   LED_CONNECTED,
   LED_ERROR,
-  LED_SMARTCONFIG
+  LED_SMARTCONFIG,
+  LED_IDENTIFY
 };
 volatile LEDState led_state = LED_OFF;
+volatile unsigned long identify_end_time = 0;
 
 // Forward declarations
 void setupWiFi();

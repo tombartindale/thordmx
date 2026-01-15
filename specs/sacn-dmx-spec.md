@@ -285,7 +285,46 @@ Triggers a device restart.
 
 The device shall delay 1 second before rebooting to allow the HTTP response to complete.
 
-#### F5.5: POST /api/firmware
+#### F5.5: POST /api/identify
+
+Triggers visual identification of the device using the status LED.
+
+**Request body (optional):**
+```json
+{
+  "duration": 10
+}
+```
+
+| Field | Type | Default | Range | Description |
+|-------|------|---------|-------|-------------|
+| `duration` | integer | 5 | 1–30 | Identification duration in seconds |
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Identifying device",
+  "duration_seconds": 10
+}
+```
+
+**LED behaviour during identification:**
+- LED flashes alternating white and magenta at 5Hz (200ms per colour)
+- After the specified duration, LED returns to normal state (off during normal operation)
+
+**Use case:** When multiple devices are installed, this endpoint allows an operator to visually identify a specific device by its IP address or hostname without physically accessing it.
+
+**Example using curl:**
+```bash
+# Default 5 second identification
+curl -X POST http://dmx-bridge-a1b2.local/api/identify
+
+# Custom 10 second identification
+curl -X POST -H "Content-Type: application/json" -d '{"duration":10}' http://dmx-bridge-a1b2.local/api/identify
+```
+
+#### F5.7: POST /api/firmware
 
 Upload new firmware binary to update the device.
 
@@ -332,7 +371,7 @@ curl -X POST -F "firmware=@firmware_v1.1.0.bin" http://dmx-bridge-a1b2.local/api
 - Binary size is within flash partition limits
 - Optional: SHA256 checksum if provided in request
 
-#### F5.6: POST /api/firmware/rollback
+#### F5.8: POST /api/firmware/rollback
 
 Manually trigger a rollback to the previous firmware version.
 
@@ -357,7 +396,7 @@ Manually trigger a rollback to the previous firmware version.
 }
 ```
 
-#### F5.7: GET /api/firmware
+#### F5.9: GET /api/firmware
 
 Returns current firmware information and rollback status.
 
@@ -373,7 +412,7 @@ Returns current firmware information and rollback status.
 }
 ```
 
-#### F5.8: API Error Handling
+#### F5.10: API Error Handling
 
 All error responses shall use appropriate HTTP status codes and include a JSON body:
 
@@ -403,8 +442,9 @@ The WS2812 LED on GPIO 8 shall indicate device state as follows:
 | Receiving sACN normally | Off |
 | WiFi connection lost | Solid red until reconnected or AP mode entered |
 | Error (unrecoverable) | Fast flashing red (4Hz) |
+| Identify mode (via API) | Alternating white/magenta (5Hz) for configured duration |
 
-**Rationale:** In normal installed operation, the LED remains off to avoid unwanted light pollution in performance environments.
+**Rationale:** In normal installed operation, the LED remains off to avoid unwanted light pollution in performance environments. The identify mode uses distinctive white/magenta flashing to stand out from other status indicators.
 
 ### F7: Captive Portal Web Interface
 
@@ -543,6 +583,8 @@ Note: Evaluate library compatibility with ESP32-C6 specifically, as some older l
 - [ ] GET /api/config returns current settings.
 - [ ] POST /api/config updates settings correctly.
 - [ ] POST /api/reboot triggers restart.
+- [ ] POST /api/identify triggers LED identification with default duration.
+- [ ] POST /api/identify with custom duration respects the specified time.
 - [ ] Invalid requests return appropriate errors.
 
 ### TC5: Status LED
@@ -551,6 +593,7 @@ Note: Evaluate library compatibility with ESP32-C6 specifically, as some older l
 - [ ] LED shows green briefly on connection, then turns off.
 - [ ] LED remains off during normal operation.
 - [ ] LED shows red on connection loss.
+- [ ] LED flashes white/magenta during identify mode and returns to normal after duration.
 
 ## Future Considerations (Out of Scope)
 
