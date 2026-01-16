@@ -1,11 +1,14 @@
 /*
  * Custom DMX512 Driver for ESP32-C6
  * Uses GPIO for break signal, UART for data
- * Disables interrupts during timing-critical sections
+ * Uses spinlock instead of global interrupt disable to preserve USB serial
  */
 
 #include "dmx_driver.h"
 #include "hal/uart_ll.h"
+
+// Spinlock for timing-critical section
+static portMUX_TYPE dmx_spinlock = portMUX_INITIALIZER_UNLOCKED;
 
 DMXDriver::DMXDriver(int tx_pin) : _tx_pin(tx_pin), _initialized(false) {}
 
@@ -56,8 +59,9 @@ void DMXDriver::sendPacket(const uint8_t* data, size_t length) {
   uart_wait_tx_done(DMX_UART_NUM, pdMS_TO_TICKS(30));
 
   // --- CRITICAL SECTION: Generate Break and MAB ---
-  // Disable interrupts to ensure precise timing
-  portDISABLE_INTERRUPTS();
+  // Use spinlock (taskENTER_CRITICAL) instead of portDISABLE_INTERRUPTS
+  // This prevents task switching but allows USB/serial interrupts to fire
+  taskENTER_CRITICAL(&dmx_spinlock);
 
   // Disconnect UART from pin temporarily
   gpio_set_direction((gpio_num_t)_tx_pin, GPIO_MODE_OUTPUT);
@@ -75,10 +79,9 @@ void DMXDriver::sendPacket(const uint8_t* data, size_t length) {
   uart_set_pin(DMX_UART_NUM, _tx_pin, UART_PIN_NO_CHANGE,
                UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 
-  // Re-enable interrupts
-  portENABLE_INTERRUPTS();
+  taskEXIT_CRITICAL(&dmx_spinlock);
+  // --- END CRITICAL SECTION ---
 
-  // --- Send DMX Frame ---
   // Reset TX FIFO to ensure clean state after GPIO manipulation
   uart_ll_txfifo_rst(UART_LL_GET_HW(DMX_UART_NUM));
 
