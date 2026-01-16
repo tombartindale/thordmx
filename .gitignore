@@ -25,3 +25,5 @@ build/
 *.bak
 node_modules
 dist-electron
+dist
+release
