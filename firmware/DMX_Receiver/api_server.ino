@@ -29,6 +29,8 @@ void setupAPI() {
   // Catch-all for captive portal
   server.onNotFound(handleCaptivePortal);
 
+  server.enableCORS(true);
+
   server.begin();
   Serial.println("[HTTP] Server started on port 80");
 }
