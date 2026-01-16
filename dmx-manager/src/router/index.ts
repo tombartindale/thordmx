@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import DevicesView from '../views/DevicesView.vue'
-import DashboardView from '../views/DashboardView.vue'
+import ProvisionView from '../views/ProvisionView.vue'
 import FirmwareView from '../views/FirmwareView.vue'
 import SettingsView from '../views/SettingsView.vue'
 
@@ -13,9 +13,9 @@ const router = createRouter({
       component: DevicesView
     },
     {
-      path: '/dashboard',
-      name: 'dashboard',
-      component: DashboardView
+      path: '/provision',
+      name: 'provision',
+      component: ProvisionView
     },
     {
       path: '/firmware',

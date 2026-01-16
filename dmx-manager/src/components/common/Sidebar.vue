@@ -19,7 +19,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { name: 'Devices', path: '/', icon: '📡' },
-  { name: 'Dashboard', path: '/dashboard', icon: '📊' },
+  { name: 'Provision', path: '/provision', icon: '📶' },
   { name: 'Firmware', path: '/firmware', icon: '⬆️' },
   { name: 'Settings', path: '/settings', icon: '⚙️' }
 ]

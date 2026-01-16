@@ -133,13 +133,13 @@ export const useDevicesStore = defineStore('devices', () => {
     }
   }
 
-  function addManualDevice(ip: string, name: string) {
+  function addManualDevice(ip: string, name: string, port: number = 80) {
     const device: Device = {
-      id: `manual-${ip}`,
+      id: `manual-${ip}:${port}`,
       name,
       hostname: ip,
       ip,
-      port: 80,
+      port,
       mac: '',
       firmwareVersion: 'unknown',
       universe: 1,

@@ -20,7 +20,7 @@ function handleCheckboxClick(event: Event) {
 
 <template>
   <div
-    class="grid grid-cols-[auto_1fr_120px_80px_100px_80px] gap-4 px-4 py-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition-colors"
+    class="grid grid-cols-[auto_1fr_150px_70px_100px_80px] gap-4 px-4 py-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition-colors"
     :class="{ 'bg-gray-800/50': isSelected }"
     @click="emit('click')"
   >
@@ -40,9 +40,9 @@ function handleCheckboxClick(event: Event) {
       <span v-if="device.isManual" class="text-xs text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">manual</span>
     </div>
 
-    <!-- IP -->
+    <!-- IP:Port -->
     <div class="flex items-center text-sm text-gray-400 font-mono">
-      {{ device.ip }}
+      {{ device.ip }}<span v-if="device.port !== 80" class="text-gray-500">:{{ device.port }}</span>
     </div>
 
     <!-- Universe -->

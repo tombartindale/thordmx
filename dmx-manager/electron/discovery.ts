@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import Bonjour, { Service } from 'bonjour-service'
+import { Bonjour, Service } from 'bonjour-service'
 
 export interface DiscoveredDevice {
   id: string
@@ -17,7 +17,7 @@ export interface DiscoveredDevice {
 }
 
 export class DiscoveryService extends EventEmitter {
-  private bonjour: Bonjour | null = null
+  private bonjour: InstanceType<typeof Bonjour> | null = null
   private browser: any = null
   private devices: Map<string, DiscoveredDevice> = new Map()
   private isRunning = false
@@ -37,17 +37,17 @@ export class DiscoveryService extends EventEmitter {
       if (device) {
         this.devices.set(device.id, device)
         this.emit('device-found', device)
-        console.log(`[Discovery] Device found: ${device.name} at ${device.ip}`)
+        console.log(`[Discovery] Device found: ${device.name} at ${device.ip}:${device.port}`)
       }
     })
 
     this.browser.on('down', (service: Service) => {
-      const mac = this.extractMac(service)
-      if (mac && this.devices.has(mac)) {
-        const device = this.devices.get(mac)!
+      const deviceId = this.getDeviceId(service)
+      if (deviceId && this.devices.has(deviceId)) {
+        const device = this.devices.get(deviceId)!
         device.isOnline = false
         device.lastSeen = new Date()
-        this.emit('device-removed', mac)
+        this.emit('device-removed', deviceId)
         console.log(`[Discovery] Device offline: ${device.name}`)
       }
     })
@@ -78,13 +78,13 @@ export class DiscoveryService extends EventEmitter {
     return Array.from(this.devices.values())
   }
 
-  addManualDevice(ip: string, name: string): DiscoveredDevice {
+  addManualDevice(ip: string, name: string, port: number = 80): DiscoveredDevice {
     const device: DiscoveredDevice = {
-      id: `manual-${ip}`,
+      id: `manual-${ip}:${port}`,
       name,
       hostname: ip,
       ip,
-      port: 80,
+      port,
       mac: '',
       firmwareVersion: 'unknown',
       universe: 1,
@@ -103,19 +103,23 @@ export class DiscoveryService extends EventEmitter {
       const mac = txt.mac || this.extractMacFromName(service.name)
       const addresses = service.addresses || []
       const ip = addresses.find((addr: string) => !addr.includes(':')) || ''
+      const port = service.port || 80
 
-      if (!mac || !ip) {
-        console.log('[Discovery] Skipping service without MAC or IP:', service.name)
+      if (!ip) {
+        console.log('[Discovery] Skipping service without IP:', service.name)
         return null
       }
 
+      // Use ip:port as unique ID to support multiple simulated devices on same IP
+      const id = `${ip}:${port}`
+
       return {
-        id: mac,
+        id,
         name: service.name,
         hostname: service.host || `${service.name}.local`,
         ip,
-        port: service.port || 80,
-        mac,
+        port,
+        mac: mac || id, // Use id as fallback if no MAC
         firmwareVersion: txt.version || 'unknown',
         universe: parseInt(txt.universe) || 1,
         discoveredAt: new Date(),
@@ -129,8 +133,12 @@ export class DiscoveryService extends EventEmitter {
     }
   }
 
-  private extractMac(service: Service): string | null {
-    return service.txt?.mac || this.extractMacFromName(service.name)
+  private getDeviceId(service: Service): string | null {
+    const addresses = service.addresses || []
+    const ip = addresses.find((addr: string) => !addr.includes(':')) || ''
+    const port = service.port || 80
+    if (!ip) return null
+    return `${ip}:${port}`
   }
 
   private extractMacFromName(name: string): string | null {

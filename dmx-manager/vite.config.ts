@@ -1,12 +1,42 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import electron from 'vite-plugin-electron'
+import renderer from 'vite-plugin-electron-renderer'
 import { resolve } from 'path'
 
-// Simple config for web-only development
-// For Electron, use electron-builder separately
 export default defineConfig({
   plugins: [
     vue(),
+    electron([
+      {
+        // Main process entry point
+        entry: 'electron/main.ts',
+        onstart(options) {
+          options.startup()
+        },
+        vite: {
+          build: {
+            outDir: 'dist-electron',
+            rollupOptions: {
+              external: ['electron', 'bonjour-service', 'node-wifi']
+            }
+          }
+        }
+      },
+      {
+        // Preload script
+        entry: 'electron/preload.ts',
+        onstart(options) {
+          options.reload()
+        },
+        vite: {
+          build: {
+            outDir: 'dist-electron'
+          }
+        }
+      }
+    ]),
+    renderer()
   ],
   resolve: {
     alias: {
@@ -15,5 +45,9 @@ export default defineConfig({
   },
   server: {
     port: 5173
+  },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true
   }
 })
