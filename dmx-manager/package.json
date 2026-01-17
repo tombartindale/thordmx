@@ -1,6 +1,7 @@
 {
   "name": "dmx-bridge-manager",
   "productName": "ThorDMX Bridge Manager",
+  "author": "Tom Bartindale",
   "version": "1.0.0",
   "description": "Cross-platform manager for ESP32 sACN-to-DMX bridge devices",
   "main": "dist-electron/main.js",
