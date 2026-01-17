@@ -3,31 +3,22 @@
  * Handles AP mode, station mode, SmartConfig, and reconnection logic
  */
 
+#define MAX_CONNECT_RETRIES 2  // Number of connection attempts before giving up
+
 void wifiTask(void *parameter)
 {
   bool ap_mode = false;
+  bool ap_mode_permanent = false;  // Once true, stay in AP mode until reboot
   unsigned long connect_start = 0;
   unsigned long smartconfig_start = 0;
   bool smartconfig_active = false;
+  int connect_retries = 0;
 
   while (true)
   {
-    // Check if we have WiFi credentials
-    if (config.wifi_ssid.length() == 0)
+    // If in permanent AP mode, just handle SmartConfig
+    if (ap_mode_permanent)
     {
-      // No credentials, enter AP mode
-      if (!ap_mode)
-      {
-        Serial.println("[WiFi] No credentials found, entering AP mode");
-        startAPMode();
-        ap_mode = true;
-        state.ap_mode_active = true;
-        led_state = LED_AP_MODE;
-        smartconfig_active = true;
-        smartconfig_start = millis();
-      }
-
-      // Listen for SmartConfig while in AP mode
       if (smartconfig_active)
       {
         if (WiFi.smartConfigDone())
@@ -55,13 +46,33 @@ void wifiTask(void *parameter)
           ESP.restart();
         }
 
-        // Check SmartConfig timeout
+        // Check SmartConfig timeout - restart listener periodically
         if (millis() - smartconfig_start > SMARTCONFIG_TIMEOUT_MS)
         {
           Serial.println("[WiFi] SmartConfig timeout, restarting listener");
           smartconfig_start = millis();
           WiFi.beginSmartConfig();
         }
+      }
+
+      vTaskDelay(pdMS_TO_TICKS(500));
+      continue;
+    }
+
+    // Check if we have WiFi credentials
+    if (config.wifi_ssid.length() == 0)
+    {
+      // No credentials, enter AP mode permanently
+      if (!ap_mode)
+      {
+        Serial.println("[WiFi] No credentials found, entering AP mode");
+        startAPMode();
+        ap_mode = true;
+        ap_mode_permanent = true;
+        state.ap_mode_active = true;
+        led_state = LED_AP_MODE;
+        smartconfig_active = true;
+        smartconfig_start = millis();
       }
     }
     else
@@ -71,8 +82,18 @@ void wifiTask(void *parameter)
       {
         if (connect_start == 0)
         {
-          // Start connection attempt
-          Serial.printf("[WiFi] Connecting to: %s\n", config.wifi_ssid.c_str());
+          connect_retries++;
+          Serial.printf("[WiFi] Connecting to: %s (attempt %d/%d)\n",
+                        config.wifi_ssid.c_str(), connect_retries, MAX_CONNECT_RETRIES);
+
+          // Stop any active SmartConfig before switching modes
+          if (smartconfig_active)
+          {
+            WiFi.stopSmartConfig();
+            smartconfig_active = false;
+            delay(100);
+          }
+
           WiFi.mode(WIFI_STA);
           WiFi.begin(config.wifi_ssid.c_str(), config.wifi_password.c_str());
           WiFi.setHostname(config.device_name.c_str());
@@ -84,6 +105,7 @@ void wifiTask(void *parameter)
         if (WiFi.status() == WL_CONNECTED)
         {
           state.wifi_connected = true;
+          connect_retries = 0;  // Reset retry counter on success
           Serial.println("[WiFi] Connected!");
           Serial.printf("  IP: %s\n", WiFi.localIP().toString().c_str());
           Serial.printf("  RSSI: %d dBm\n", WiFi.RSSI());
@@ -100,19 +122,36 @@ void wifiTask(void *parameter)
         }
         else if (millis() - connect_start > AP_TIMEOUT_MS)
         {
-          // Connection timeout, fall back to AP mode
-          Serial.println("[WiFi] Connection timeout, entering AP mode");
-          WiFi.disconnect();
-          startAPMode();
-          ap_mode = true;
-          state.ap_mode_active = true;
-          led_state = LED_AP_MODE;
+          // Connection timeout
+          Serial.println("[WiFi] Connection timeout");
+
+          // Fully disconnect and wait for WiFi to settle
+          WiFi.disconnect(true);
+          delay(100);
+          WiFi.mode(WIFI_OFF);
+          delay(100);
+
           connect_start = 0;
 
-          // Start SmartConfig
-          smartconfig_active = true;
-          smartconfig_start = millis();
-          WiFi.beginSmartConfig();
+          // Check if we've exhausted retries
+          if (connect_retries >= MAX_CONNECT_RETRIES)
+          {
+            Serial.printf("[WiFi] Max retries (%d) reached, entering AP mode permanently\n", MAX_CONNECT_RETRIES);
+            Serial.println("[WiFi] Update credentials via web interface or reboot to retry");
+
+            startAPMode();
+            ap_mode = true;
+            ap_mode_permanent = true;
+            state.ap_mode_active = true;
+            led_state = LED_AP_MODE;
+            smartconfig_active = true;
+            smartconfig_start = millis();
+          }
+          else
+          {
+            Serial.println("[WiFi] Will retry connection...");
+            // connect_start is already 0, so next loop iteration will retry
+          }
         }
       }
       else
@@ -124,6 +163,7 @@ void wifiTask(void *parameter)
           state.wifi_connected = false;
           led_state = LED_ERROR;
           connect_start = 0;
+          connect_retries = 0;  // Reset retries for reconnection attempts
           MDNS.end();
           server.stop();
         }
@@ -142,14 +182,32 @@ void startAPMode()
                    String(mac[4], HEX) + String(mac[5], HEX);
   ap_ssid.toUpperCase();
 
-  WiFi.mode(WIFI_AP);
+  // Use AP_STA mode to allow both AP and SmartConfig to work simultaneously
+  WiFi.mode(WIFI_AP_STA);
+
+  // Small delay to let mode change settle
+  delay(200);
+
   WiFi.softAP(ap_ssid.c_str());
+
+  // Wait for AP to be ready
+  delay(100);
 
   Serial.printf("[WiFi] AP Mode started: %s\n", ap_ssid.c_str());
   Serial.printf("  IP: %s\n", WiFi.softAPIP().toString().c_str());
 
   // Start captive portal
   setupAPI();
+
+  // Start SmartConfig listener (works because we're in AP_STA mode)
+  if (WiFi.beginSmartConfig())
+  {
+    Serial.println("[WiFi] SmartConfig listener started");
+  }
+  else
+  {
+    Serial.println("[WiFi] SmartConfig failed to start");
+  }
 }
 
 void startMDNS()

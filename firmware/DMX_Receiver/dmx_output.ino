@@ -18,7 +18,8 @@ void dmxTask(void* parameter) {
       xSemaphoreGive(dmx_mutex);
     }
 
-    Serial.write(local_buffer[1]);
+    // Debug output removed - was corrupting serial communication
+    // Serial.write(local_buffer[1]);
     // Serial.println(dmx_data[0]);
     // Serial.println(local_buffer[0]);
 

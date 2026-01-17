@@ -6,7 +6,7 @@
  *
  * Hardware:
  * - ESP32-C6 microcontroller
- * - GPIO 0: DMX output (to MAX485 transceiver)
+ * - GPIO 1: DMX output (to MAX485 transceiver)
  * - GPIO 8: WS2812 RGB LED for status indication
  */
 
@@ -31,7 +31,7 @@
 #define LED_PIN 8
 
 // WiFi configuration
-#define AP_TIMEOUT_MS 30000
+#define AP_TIMEOUT_MS 15000
 #define SMARTCONFIG_TIMEOUT_MS 120000
 
 // DMX configuration
@@ -119,7 +119,15 @@ void onDMXFrame();
 void setup()
 {
   Serial.begin(115200);
-  delay(100);
+
+  // Wait for USB-CDC serial to be ready (ESP32-C6 native USB)
+  // This ensures we don't miss early boot messages
+  unsigned long serial_wait_start = millis();
+  while (!Serial && (millis() - serial_wait_start < 3000))
+  {
+    delay(10);
+  }
+  delay(500);  // Extra delay for serial monitor to attach
 
   Serial.println("\n\n=================================");
   Serial.println("sACN to DMX Bridge");
