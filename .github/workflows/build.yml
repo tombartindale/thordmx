@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
     branches: [main]
 
@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: dmx-manager/package-lock.json
 
       - name: Install dependencies
@@ -53,14 +53,14 @@ jobs:
           name: dmx-bridge-manager-windows
           path: dmx-manager/out/make/squirrel.windows/**/*
 
-      - name: Upload artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: dmx-bridge-manager-linux
-          path: |
-            dmx-manager/out/make/**/*.deb
-            dmx-manager/out/make/**/*.rpm
+      # - name: Upload artifacts (Linux)
+      #   if: matrix.os == 'ubuntu-latest'
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: dmx-bridge-manager-linux
+      #     path: |
+      #       dmx-manager/out/make/**/*.deb
+      #       dmx-manager/out/make/**/*.rpm
 
   release:
     needs: build
