@@ -27,7 +27,7 @@ const {
   reset
 } = useProvisioning()
 
-const apPattern = ref('DMX-Bridge-*')
+const apPattern = ref('THOR-BRIDGE-*')
 const step = ref<'scan' | 'configure' | 'provision' | 'complete'>('scan')
 
 onMounted(async () => {

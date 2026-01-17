@@ -1,6 +1,6 @@
 /*
  * WiFi Management Task
- * Handles AP mode, station mode, SmartConfig, and reconnection logic
+ * Handles AP mode, station mode, and reconnection logic
  */
 
 #define MAX_CONNECT_RETRIES 2  // Number of connection attempts before giving up
@@ -10,51 +10,13 @@ void wifiTask(void *parameter)
   bool ap_mode = false;
   bool ap_mode_permanent = false;  // Once true, stay in AP mode until reboot
   unsigned long connect_start = 0;
-  unsigned long smartconfig_start = 0;
-  bool smartconfig_active = false;
   int connect_retries = 0;
 
   while (true)
   {
-    // If in permanent AP mode, just handle SmartConfig
+    // If in permanent AP mode, nothing to do - just wait
     if (ap_mode_permanent)
     {
-      if (smartconfig_active)
-      {
-        if (WiFi.smartConfigDone())
-        {
-          Serial.println("[WiFi] SmartConfig: credentials received!");
-
-          // Flash LED green twice
-          for (int i = 0; i < 2; i++)
-          {
-            leds[0] = CRGB::Green;
-            FastLED.show();
-            delay(100);
-            leds[0] = CRGB::Black;
-            FastLED.show();
-            delay(100);
-          }
-
-          // Save credentials
-          config.wifi_ssid = WiFi.SSID();
-          config.wifi_password = WiFi.psk();
-          saveConfig();
-
-          Serial.println("[WiFi] SmartConfig credentials saved, rebooting...");
-          delay(1000);
-          ESP.restart();
-        }
-
-        // Check SmartConfig timeout - restart listener periodically
-        if (millis() - smartconfig_start > SMARTCONFIG_TIMEOUT_MS)
-        {
-          Serial.println("[WiFi] SmartConfig timeout, restarting listener");
-          smartconfig_start = millis();
-          WiFi.beginSmartConfig();
-        }
-      }
-
       vTaskDelay(pdMS_TO_TICKS(500));
       continue;
     }
@@ -71,8 +33,6 @@ void wifiTask(void *parameter)
         ap_mode_permanent = true;
         state.ap_mode_active = true;
         led_state = LED_AP_MODE;
-        smartconfig_active = true;
-        smartconfig_start = millis();
       }
     }
     else
@@ -85,14 +45,6 @@ void wifiTask(void *parameter)
           connect_retries++;
           Serial.printf("[WiFi] Connecting to: %s (attempt %d/%d)\n",
                         config.wifi_ssid.c_str(), connect_retries, MAX_CONNECT_RETRIES);
-
-          // Stop any active SmartConfig before switching modes
-          if (smartconfig_active)
-          {
-            WiFi.stopSmartConfig();
-            smartconfig_active = false;
-            delay(100);
-          }
 
           WiFi.mode(WIFI_STA);
           WiFi.begin(config.wifi_ssid.c_str(), config.wifi_password.c_str());
@@ -144,8 +96,6 @@ void wifiTask(void *parameter)
             ap_mode_permanent = true;
             state.ap_mode_active = true;
             led_state = LED_AP_MODE;
-            smartconfig_active = true;
-            smartconfig_start = millis();
           }
           else
           {
@@ -178,36 +128,21 @@ void startAPMode()
 {
   uint8_t mac[6];
   WiFi.macAddress(mac);
-  String ap_ssid = String("DMX-Bridge-") +
+  String ap_ssid = String("THOR-BRIDGE-") +
                    String(mac[4], HEX) + String(mac[5], HEX);
   ap_ssid.toUpperCase();
 
-  // Use AP_STA mode to allow both AP and SmartConfig to work simultaneously
-  WiFi.mode(WIFI_AP_STA);
-
-  // Small delay to let mode change settle
-  delay(200);
+  WiFi.mode(WIFI_AP);
+  delay(100);
 
   WiFi.softAP(ap_ssid.c_str());
-
-  // Wait for AP to be ready
   delay(100);
 
   Serial.printf("[WiFi] AP Mode started: %s\n", ap_ssid.c_str());
   Serial.printf("  IP: %s\n", WiFi.softAPIP().toString().c_str());
 
-  // Start captive portal
+  // Start captive portal / web server
   setupAPI();
-
-  // Start SmartConfig listener (works because we're in AP_STA mode)
-  if (WiFi.beginSmartConfig())
-  {
-    Serial.println("[WiFi] SmartConfig listener started");
-  }
-  else
-  {
-    Serial.println("[WiFi] SmartConfig failed to start");
-  }
 }
 
 void startMDNS()

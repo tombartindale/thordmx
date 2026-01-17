@@ -7,7 +7,7 @@
     <div class="w-20"></div>
 
     <div class="flex-1 text-center">
-      <h1 class="text-sm font-medium text-gray-300">DMX Bridge Manager</h1>
+      <h1 class="text-sm font-medium text-gray-300">ThorDMX Bridge Manager</h1>
     </div>
 
     <div class="w-20"></div>

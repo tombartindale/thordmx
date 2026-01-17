@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDevicesStore } from '../../stores/devices'
+import { version } from '../../../package.json'
 
 const route = useRoute()
 const router = useRouter()
@@ -70,7 +71,7 @@ function navigate(path: string) {
 
     <!-- Version info -->
     <div class="p-4 border-t border-gray-700">
-      <div class="text-xs text-gray-500">DMX Bridge Manager v1.0.0</div>
+      <div class="text-xs text-gray-500">ThorDMX Bridge Manager {{version}}</div>
     </div>
   </aside>
 </template>
