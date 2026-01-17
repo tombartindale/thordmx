@@ -14,6 +14,7 @@ export interface WifiNetwork {
 export interface WifiService {
   scan(): Promise<WifiNetwork[]>
   getCurrentNetwork(): Promise<string | null>
+  getStoredPassword(ssid: string): Promise<string | null>
   connect(ssid: string, password?: string): Promise<boolean>
   disconnect(): Promise<boolean>
 }
@@ -53,6 +54,18 @@ export class WifiProvisioningService extends EventEmitter {
     this.wifiService = await createWifiService()
     this.originalNetwork = await this.wifiService.getCurrentNetwork()
     console.log(`[WiFi] Initialized. Current network: ${this.originalNetwork}`)
+  }
+
+  async getCurrentNetworkCredentials(): Promise<{ ssid: string; password: string } | null> {
+    if (!this.wifiService) throw new Error('WiFi service not initialized')
+
+    const ssid = await this.wifiService.getCurrentNetwork()
+    if (!ssid) return null
+
+    const password = await this.wifiService.getStoredPassword(ssid)
+    if (!password) return null
+
+    return { ssid, password }
   }
 
   async scanNetworks(pattern?: string): Promise<WifiNetwork[]> {

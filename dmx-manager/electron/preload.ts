@@ -22,6 +22,7 @@ export interface ElectronAPI {
   wifi: {
     initialize: () => Promise<{ success: boolean; error?: string }>
     scan: (pattern?: string) => Promise<{ success: boolean; networks?: WifiNetwork[]; error?: string }>
+    getCurrentCredentials: () => Promise<{ success: boolean; credentials?: { ssid: string; password: string } | null; error?: string }>
     connectDeviceAP: (ssid: string) => Promise<{ success: boolean; error?: string }>
     connectTarget: (ssid: string, password: string) => Promise<{ success: boolean; error?: string }>
     reconnectOriginal: () => Promise<{ success: boolean; error?: string }>
@@ -48,6 +49,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   wifi: {
     initialize: () => ipcRenderer.invoke('wifi:initialize'),
     scan: (pattern?: string) => ipcRenderer.invoke('wifi:scan', pattern),
+    getCurrentCredentials: () => ipcRenderer.invoke('wifi:get-current-credentials'),
     connectDeviceAP: (ssid: string) => ipcRenderer.invoke('wifi:connect-device-ap', ssid),
     connectTarget: (ssid: string, password: string) => ipcRenderer.invoke('wifi:connect-target', ssid, password),
     reconnectOriginal: () => ipcRenderer.invoke('wifi:reconnect-original'),

@@ -33,6 +33,23 @@ export class WindowsWifiService implements WifiService {
     }
   }
 
+  async getStoredPassword(ssid: string): Promise<string | null> {
+    try {
+      // Use netsh to get the stored WiFi password
+      const { stdout } = await execAsync(
+        `netsh wlan show profile name="${ssid}" key=clear`,
+        { encoding: 'utf8' }
+      )
+
+      // Look for "Key Content" line
+      const match = stdout.match(/Key Content\s*:\s*(.+)/i)
+      return match ? match[1].trim() : null
+    } catch (error) {
+      console.error('[WiFi Windows] Get stored password failed:', error)
+      return null
+    }
+  }
+
   async connect(ssid: string, password?: string): Promise<boolean> {
     try {
       if (password) {

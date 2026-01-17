@@ -126,6 +126,19 @@ ipcMain.handle('wifi:scan', async (_event, pattern?: string) => {
   }
 })
 
+ipcMain.handle('wifi:get-current-credentials', async () => {
+  try {
+    if (!wifiService) {
+      return { success: false, error: 'WiFi service not initialized' }
+    }
+    const credentials = await wifiService.getCurrentNetworkCredentials()
+    return { success: true, credentials }
+  } catch (error) {
+    console.error('[WiFi] Get credentials failed:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 ipcMain.handle('wifi:connect-device-ap', async (_event, ssid: string) => {
   try {
     if (!wifiService) {

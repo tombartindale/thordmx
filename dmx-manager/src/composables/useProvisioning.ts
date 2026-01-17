@@ -85,6 +85,8 @@ export function useProvisioning() {
       if (result.success) {
         isInitialized.value = true
         setupEventListeners()
+        // Try to auto-fill current WiFi credentials
+        await loadCurrentCredentials()
         return true
       } else {
         error.value = result.error || 'Failed to initialize WiFi service'
@@ -92,6 +94,21 @@ export function useProvisioning() {
       }
     } catch (e) {
       error.value = (e as Error).message
+      return false
+    }
+  }
+
+  async function loadCurrentCredentials(): Promise<boolean> {
+    try {
+      const result = await (window as any).electronAPI.wifi.getCurrentCredentials()
+      if (result.success && result.credentials) {
+        config.targetSsid = result.credentials.ssid
+        config.targetPassword = result.credentials.password
+        return true
+      }
+      return false
+    } catch (e) {
+      console.warn('[Provisioning] Could not load current WiFi credentials:', e)
       return false
     }
   }

@@ -46,6 +46,19 @@ export class LinuxWifiService implements WifiService {
     }
   }
 
+  async getStoredPassword(ssid: string): Promise<string | null> {
+    try {
+      // Use nmcli to get stored password (requires root or appropriate permissions)
+      const { stdout } = await execAsync(
+        `nmcli -s -g 802-11-wireless-security.psk connection show "${ssid}"`
+      )
+      return stdout.trim() || null
+    } catch (error) {
+      console.error('[WiFi Linux] Get stored password failed:', error)
+      return null
+    }
+  }
+
   async connect(ssid: string, password?: string): Promise<boolean> {
     try {
       if (password) {
