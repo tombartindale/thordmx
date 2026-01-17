@@ -1,9 +1,15 @@
 name: Build/release
 
-on: push
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
 
 jobs:
-  release:
+  build:
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -12,20 +18,73 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
 
-      - name: Install Node.js, NPM and Yarn
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 10
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: dmx-manager/package-lock.json
 
-      - name: Build/release Electron app
-        uses: samuelmeuli/action-electron-builder@v1
+      - name: Install dependencies
+        working-directory: dmx-manager
+        run: npm ci
+
+      - name: Build Vite app
+        working-directory: dmx-manager
+        run: npm run build
+
+      - name: Package Electron app
+        working-directory: dmx-manager
+        run: npm run make
+
+      - name: Upload artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
         with:
-          # GitHub token, automatically provided to the action
-          # (No need to define this secret in the repo settings)
-          github_token: ${{ secrets.github_token }}
+          name: dmx-bridge-manager-macos
+          path: dmx-manager/out/make/**/*.dmg
 
-          # If the commit is tagged with a version (e.g. "v1.0.0"),
-          # release the app after building
-          release: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmx-bridge-manager-windows
+          path: dmx-manager/out/make/squirrel.windows/**/*
+
+      - name: Upload artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmx-bridge-manager-linux
+          path: |
+            dmx-manager/out/make/**/*.deb
+            dmx-manager/out/make/**/*.rpm
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,11 +1,11 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import DevicesView from '../views/DevicesView.vue'
 import ProvisionView from '../views/ProvisionView.vue'
 import FirmwareView from '../views/FirmwareView.vue'
 import SettingsView from '../views/SettingsView.vue'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes: [
     {
       path: '/',
