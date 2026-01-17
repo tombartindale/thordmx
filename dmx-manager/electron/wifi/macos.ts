@@ -9,25 +9,29 @@ export class MacOSWifiService implements WifiService {
 
   async scan(): Promise<WifiNetwork[]> {
     try {
-      // Use airport utility to scan for networks
+      // Use system_profiler to get available networks (works on macOS Sonoma+)
+      // This requires triggering a scan first via networksetup
       const { stdout } = await execAsync(
-        '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -s'
+        'system_profiler SPAirPortDataType -json'
       )
 
-      return this.parseAirportOutput(stdout)
+      return this.parseSystemProfilerOutput(stdout)
     } catch (error) {
       console.error('[WiFi macOS] Scan failed:', error)
+      // Fallback: try using wdutil if available (requires sudo, so likely won't work)
       return []
     }
   }
 
   async getCurrentNetwork(): Promise<string | null> {
     try {
+      // Use networksetup to get current network - works on all macOS versions
       const { stdout } = await execAsync(
-        '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I'
+        `networksetup -getairportnetwork ${this.interface}`
       )
 
-      const match = stdout.match(/\s+SSID:\s+(.+)/)
+      // Output format: "Current Wi-Fi Network: NetworkName" or "You are not associated with an AirPort network."
+      const match = stdout.match(/Current Wi-Fi Network:\s*(.+)/)
       return match ? match[1].trim() : null
     } catch (error) {
       console.error('[WiFi macOS] Get current network failed:', error)
@@ -66,43 +70,68 @@ export class MacOSWifiService implements WifiService {
     }
   }
 
-  private parseAirportOutput(output: string): WifiNetwork[] {
-    const lines = output.trim().split('\n')
-    if (lines.length < 2) return []
+  private parseSystemProfilerOutput(jsonOutput: string): WifiNetwork[] {
+    try {
+      const data = JSON.parse(jsonOutput)
+      const networks: WifiNetwork[] = []
 
-    // Skip header line
-    const networks: WifiNetwork[] = []
+      // Navigate to SPAirPortDataType
+      const airportData = data.SPAirPortDataType
+      if (!airportData || !Array.isArray(airportData)) {
+        return networks
+      }
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i]
-      // airport output format: SSID BSSID RSSI CHANNEL HT CC SECURITY
-      // Fields are space-separated but SSID can have spaces (left-padded to 32 chars)
-      const parts = line.trim().split(/\s+/)
+      for (const iface of airportData) {
+        // Look for "Other Local Wi-Fi Networks" or similar
+        const otherNetworks = iface.spairport_airport_other_local_wireless_networks
+        if (Array.isArray(otherNetworks)) {
+          for (const net of otherNetworks) {
+            const ssid = net._name || net.spairport_network_name
+            if (ssid) {
+              const rssi = net.spairport_signal_noise ? parseInt(net.spairport_signal_noise) : -70
+              const channel = net.spairport_network_channel ? parseInt(net.spairport_network_channel) : 0
 
-      if (parts.length >= 7) {
-        // Work backwards from known fixed-width fields
-        const security = parts.slice(-1)[0]
-        const cc = parts.slice(-2)[0]
-        const ht = parts.slice(-3)[0]
-        const channel = parseInt(parts.slice(-4)[0]) || 0
-        const rssi = parseInt(parts.slice(-5)[0]) || -100
-        const bssid = parts.slice(-6)[0]
-        const ssid = parts.slice(0, -6).join(' ').trim()
+              networks.push({
+                ssid,
+                bssid: net.spairport_network_bssid || '',
+                signalStrength: rssi,
+                signalQuality: getSignalQuality(rssi),
+                security: net.spairport_security_mode || 'unknown',
+                channel,
+                frequency: channel <= 14 ? 2400 : 5000
+              })
+            }
+          }
+        }
 
-        if (ssid && bssid) {
-          networks.push({
-            ssid,
-            bssid,
-            signalStrength: rssi,
-            signalQuality: getSignalQuality(rssi),
-            security,
-            channel,
-            frequency: channel <= 14 ? 2400 : 5000
-          })
+        // Also check current network info
+        const currentNetwork = iface.spairport_current_network_information
+        if (currentNetwork) {
+          const ssid = currentNetwork._name
+          if (ssid) {
+            const rssi = currentNetwork.spairport_signal_noise ? parseInt(currentNetwork.spairport_signal_noise) : -50
+            const channel = currentNetwork.spairport_network_channel ? parseInt(currentNetwork.spairport_network_channel) : 0
+
+            // Add current network if not already in list
+            if (!networks.find(n => n.ssid === ssid)) {
+              networks.push({
+                ssid,
+                bssid: currentNetwork.spairport_network_bssid || '',
+                signalStrength: rssi,
+                signalQuality: getSignalQuality(rssi),
+                security: currentNetwork.spairport_security_mode || 'unknown',
+                channel,
+                frequency: channel <= 14 ? 2400 : 5000
+              })
+            }
+          }
         }
       }
-    }
 
-    return networks
+      return networks
+    } catch (error) {
+      console.error('[WiFi macOS] Failed to parse system_profiler output:', error)
+      return []
+    }
   }
 }

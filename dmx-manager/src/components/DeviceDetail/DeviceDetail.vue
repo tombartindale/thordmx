@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import type { Device, DeviceStatus, DeviceConfig } from '../../api/types'
 import { createDeviceClient } from '../../api/client'
+import { useDevicesStore } from '../../stores/devices'
 import StatusIndicator from '../common/StatusIndicator.vue'
 
 const props = defineProps<{
@@ -13,12 +14,16 @@ const emit = defineEmits<{
   (e: 'update'): void
 }>()
 
+const devicesStore = useDevicesStore()
+
 const activeTab = ref<'status' | 'config' | 'actions'>('status')
-const status = ref<DeviceStatus | null>(null)
 const config = ref<DeviceConfig | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const actionInProgress = ref<string | null>(null)
+
+// Use store's status reactively, with fallback to local fetch
+const status = computed(() => devicesStore.deviceStatuses.get(props.device.id) || null)
 
 // Config form
 const configForm = ref({
@@ -34,7 +39,7 @@ async function fetchStatus() {
   isLoading.value = true
   error.value = null
   try {
-    status.value = await client.value.getStatus()
+    await devicesStore.fetchDeviceStatus(props.device)
   } catch (e) {
     error.value = 'Failed to fetch device status'
   } finally {

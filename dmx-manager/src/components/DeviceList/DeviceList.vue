@@ -129,7 +129,7 @@ function handleRefresh() {
     </div>
 
     <!-- Header row -->
-    <div class="grid grid-cols-[auto_1fr_120px_80px_100px_80px] gap-4 px-4 py-2 bg-gray-800 border-b border-gray-700 text-xs text-gray-400 uppercase tracking-wide">
+    <div class="grid grid-cols-[auto_1fr_150px_70px_100px_80px_auto] gap-4 px-4 py-2 bg-gray-800 border-b border-gray-700 text-xs text-gray-400 uppercase tracking-wide">
       <div class="w-6"></div>
       <button @click="toggleSort('name')" class="text-left hover:text-gray-200">
         Name {{ sortField === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
@@ -144,6 +144,7 @@ function handleRefresh() {
       <button @click="toggleSort('status')" class="text-left hover:text-gray-200">
         Status {{ sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
       </button>
+      <div class="w-8"></div>
     </div>
 
     <!-- Device list -->
