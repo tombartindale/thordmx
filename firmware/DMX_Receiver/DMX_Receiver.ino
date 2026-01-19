@@ -127,10 +127,10 @@ void setup()
   {
     delay(10);
   }
-  delay(500);  // Extra delay for serial monitor to attach
+  delay(500); // Extra delay for serial monitor to attach
 
   Serial.println("\n\n=================================");
-  Serial.println("sACN to DMX Bridge");
+  Serial.println("ThorDMX sACN to DMX Bridge");
   Serial.printf("Firmware: v%s\n", FIRMWARE_VERSION);
   Serial.println("=================================\n");
 
