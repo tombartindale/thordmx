@@ -17,6 +17,7 @@ export interface WifiService {
   getStoredPassword(ssid: string): Promise<string | null>
   connect(ssid: string, password?: string): Promise<boolean>
   disconnect(): Promise<boolean>
+  checkLocationAuthorization?(): Promise<number>
 }
 
 // Signal quality thresholds (dBm)
@@ -52,8 +53,29 @@ export class WifiProvisioningService extends EventEmitter {
 
   async initialize(): Promise<void> {
     this.wifiService = await createWifiService()
+
+    // Check location authorization first on macOS
+    if (platform() === 'darwin' && this.wifiService.checkLocationAuthorization) {
+      const status = await this.wifiService.checkLocationAuthorization()
+      console.log(`[WiFi] Location authorization status: ${status}`)
+    }
+
     this.originalNetwork = await this.wifiService.getCurrentNetwork()
     console.log(`[WiFi] Initialized. Current network: ${this.originalNetwork}`)
+  }
+
+  async checkLocationAuthorization(): Promise<{ authorized: boolean; status: number }> {
+    if (platform() !== 'darwin') {
+      return { authorized: true, status: 4 }
+    }
+
+    if (!this.wifiService?.checkLocationAuthorization) {
+      return { authorized: false, status: 0 }
+    }
+
+    const status = await this.wifiService.checkLocationAuthorization()
+    const authorized = status === 3 || status === 4 // authorizedAlways or authorizedWhenInUse
+    return { authorized, status }
   }
 
   async getCurrentNetworkCredentials(): Promise<{ ssid: string; password: string | null }  | null> {

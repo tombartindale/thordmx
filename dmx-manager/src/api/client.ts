@@ -25,8 +25,21 @@ export class DeviceClient {
   }
 
   async setConfig(config: ConfigUpdate): Promise<ApiResponse> {
-    const response = await this.axios.post<ApiResponse>('/api/config', config)
-    return response.data
+    try {
+      const response = await this.axios.post<ApiResponse>('/api/config', config)
+      return response.data
+    } catch (error: any) {
+      // Handle axios errors - extract the error message from the response body
+      if (error.response?.data) {
+        // Device returned an error response (e.g., 400 Bad Request)
+        return error.response.data as ApiResponse
+      }
+      // Network error or other issue
+      return {
+        success: false,
+        error: error.message || 'Failed to send configuration'
+      }
+    }
   }
 
   async reboot(): Promise<ApiResponse> {

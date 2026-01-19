@@ -4,23 +4,80 @@ import { DiscoveryService } from "./discovery";
 import { WifiProvisioningService } from "./wifi";
 
 // Request location permission on macOS (required for WiFi SSID access)
-async function requestLocationPermission(): Promise<void> {
-  if (process.platform === "darwin") {
-    console.log("[Permission] Requesting location access for WiFi SSID detection");
+async function requestLocationPermission(): Promise<{ authorized: boolean; status: number }> {
+  if (process.platform !== "darwin") {
+    return { authorized: true, status: 4 };
+  }
 
-    // Try to trigger location permission prompt by accessing CoreLocation
-    try {
-      const { execSync } = require("child_process");
-      // This Swift code will trigger the location permission prompt
-      execSync(`swift -e '
+  console.log("[Permission] Checking location authorization for WiFi SSID detection");
+
+  const { exec } = require("child_process");
+  const { promisify } = require("util");
+  const execAsync = promisify(exec);
+
+  // Swift code that properly requests and waits for location authorization
+  const swiftCode = `
+import Foundation
 import CoreLocation
-let manager = CLLocationManager()
-manager.requestWhenInUseAuthorization()
-RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
-'`, { timeout: 5000 });
-    } catch (e) {
-      console.log("[Permission] Location permission request attempted");
+
+class LocationDelegate: NSObject, CLLocationManagerDelegate {
+    var authStatus: CLAuthorizationStatus = .notDetermined
+    let semaphore = DispatchSemaphore(value: 0)
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authStatus = manager.authorizationStatus
+        semaphore.signal()
     }
+
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        authStatus = status
+        semaphore.signal()
+    }
+}
+
+let manager = CLLocationManager()
+let delegate = LocationDelegate()
+manager.delegate = delegate
+
+let currentStatus = manager.authorizationStatus
+
+if currentStatus == .notDetermined {
+    // Request authorization and wait for response
+    manager.requestWhenInUseAuthorization()
+
+    // Run the run loop to process the authorization request
+    CFRunLoopRunInMode(.defaultMode, 5.0, false)
+
+    print(manager.authorizationStatus.rawValue)
+} else {
+    print(currentStatus.rawValue)
+}
+`;
+
+  try {
+    const { stdout } = await execAsync(`swift -e '${swiftCode}'`, { timeout: 10000 });
+    const status = parseInt(stdout.trim(), 10);
+    const authorized = status === 3 || status === 4; // authorizedAlways or authorizedWhenInUse
+
+    const statusNames: Record<number, string> = {
+      0: "notDetermined",
+      1: "restricted",
+      2: "denied",
+      3: "authorizedAlways",
+      4: "authorizedWhenInUse",
+    };
+
+    console.log(`[Permission] Location authorization: ${statusNames[status] || "unknown"} (${status})`);
+
+    if (!authorized && status !== 0) {
+      console.warn("[Permission] Location access not authorized. WiFi SSID detection may not work.");
+      console.warn("[Permission] Please grant location access in System Settings > Privacy & Security > Location Services");
+    }
+
+    return { authorized, status };
+  } catch (error) {
+    console.error("[Permission] Failed to check location authorization:", error);
+    return { authorized: false, status: 0 };
   }
 }
 
@@ -224,5 +281,20 @@ ipcMain.handle("wifi:reconnect-original", async () => {
   } catch (error) {
     console.error("[WiFi] Reconnect failed:", error);
     return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle("wifi:check-location-authorization", async () => {
+  try {
+    if (!wifiService) {
+      // If WiFi service not initialized, use the standalone check
+      const result = await requestLocationPermission();
+      return { success: true, ...result };
+    }
+    const result = await wifiService.checkLocationAuthorization();
+    return { success: true, ...result };
+  } catch (error) {
+    console.error("[WiFi] Check location authorization failed:", error);
+    return { success: false, authorized: false, status: 0, error: (error as Error).message };
   }
 });
