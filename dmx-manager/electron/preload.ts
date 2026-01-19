@@ -16,13 +16,16 @@ export interface ElectronAPI {
     stop: () => Promise<{ success: boolean }>
     refresh: () => Promise<{ success: boolean }>
     getDevices: () => Promise<any[]>
+    removeDevice: (deviceId: string) => Promise<{ success: boolean }>
+    clearOffline: () => Promise<{ success: boolean; count: number }>
+    addManual: (ip: string, name: string, port?: number) => Promise<{ success: boolean; device?: any }>
     onDeviceFound: (callback: (device: any) => void) => void
     onDeviceRemoved: (callback: (deviceId: string) => void) => void
   }
   wifi: {
     initialize: () => Promise<{ success: boolean; error?: string }>
     scan: (pattern?: string) => Promise<{ success: boolean; networks?: WifiNetwork[]; error?: string }>
-    getCurrentCredentials: () => Promise<{ success: boolean; credentials?: { ssid: string; password: string } | null; error?: string }>
+    getCurrentCredentials: () => Promise<{ success: boolean; credentials?: { ssid: string; password: string | null } | null; error?: string }>
     connectDeviceAP: (ssid: string) => Promise<{ success: boolean; error?: string }>
     connectTarget: (ssid: string, password: string) => Promise<{ success: boolean; error?: string }>
     reconnectOriginal: () => Promise<{ success: boolean; error?: string }>
@@ -39,6 +42,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     stop: () => ipcRenderer.invoke('discovery:stop'),
     refresh: () => ipcRenderer.invoke('discovery:refresh'),
     getDevices: () => ipcRenderer.invoke('discovery:get-devices'),
+    removeDevice: (deviceId: string) => ipcRenderer.invoke('discovery:remove-device', deviceId),
+    clearOffline: () => ipcRenderer.invoke('discovery:clear-offline'),
+    addManual: (ip: string, name: string, port?: number) => ipcRenderer.invoke('discovery:add-manual', ip, name, port),
     onDeviceFound: (callback: (device: any) => void) => {
       ipcRenderer.on('device-found', (_event, device) => callback(device))
     },

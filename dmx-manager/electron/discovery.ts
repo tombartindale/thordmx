@@ -1,5 +1,8 @@
 import { EventEmitter } from 'events'
 import { Bonjour, Service } from 'bonjour-service'
+import { app } from 'electron'
+import * as fs from 'fs'
+import * as path from 'path'
 
 export interface DiscoveredDevice {
   id: string
@@ -16,14 +19,80 @@ export interface DiscoveredDevice {
   isManual: boolean
 }
 
+interface StoredDevice {
+  id: string
+  name: string
+  hostname: string
+  ip: string
+  port: number
+  mac: string
+  firmwareVersion: string
+  universe: number
+  discoveredAt: string
+  lastSeen: string
+  isManual: boolean
+}
+
 export class DiscoveryService extends EventEmitter {
   private bonjour: InstanceType<typeof Bonjour> | null = null
   private browser: any = null
   private devices: Map<string, DiscoveredDevice> = new Map()
   private isRunning = false
+  private storePath: string
 
   constructor() {
     super()
+    // Use Electron's userData path for storage
+    const userDataPath = app.getPath('userData')
+    this.storePath = path.join(userDataPath, 'devices.json')
+    this.loadKnownDevices()
+  }
+
+  private loadKnownDevices(): void {
+    try {
+      if (fs.existsSync(this.storePath)) {
+        const data = fs.readFileSync(this.storePath, 'utf-8')
+        const storedDevices: StoredDevice[] = JSON.parse(data)
+        console.log(`[Discovery] Loading ${storedDevices.length} known devices from storage`)
+
+        for (const stored of storedDevices) {
+          const device: DiscoveredDevice = {
+            ...stored,
+            discoveredAt: new Date(stored.discoveredAt),
+            lastSeen: new Date(stored.lastSeen),
+            isOnline: false // Mark as offline until discovered
+          }
+          this.devices.set(device.id, device)
+        }
+      } else {
+        console.log('[Discovery] No stored devices found')
+      }
+    } catch (error) {
+      console.error('[Discovery] Failed to load devices:', error)
+    }
+  }
+
+  private saveKnownDevices(): void {
+    try {
+      const devicesToStore: StoredDevice[] = Array.from(this.devices.values()).map(device => ({
+        id: device.id,
+        name: device.name,
+        hostname: device.hostname,
+        ip: device.ip,
+        port: device.port,
+        mac: device.mac,
+        firmwareVersion: device.firmwareVersion,
+        universe: device.universe,
+        discoveredAt: device.discoveredAt.toISOString(),
+        lastSeen: device.lastSeen.toISOString(),
+        isManual: device.isManual
+      }))
+
+      fs.writeFileSync(this.storePath, JSON.stringify(devicesToStore, null, 2), 'utf-8')
+      console.log(`[Discovery] Saved ${devicesToStore.length} devices to storage`)
+    } catch (error) {
+      console.error('[Discovery] Failed to save devices:', error)
+    }
   }
 
   start(): void {
@@ -35,7 +104,15 @@ export class DiscoveryService extends EventEmitter {
     this.browser.on('up', (service: Service) => {
       const device = this.parseService(service)
       if (device) {
+        // Check if this is a known device coming back online
+        const existingDevice = this.devices.get(device.id)
+        if (existingDevice) {
+          // Update existing device info but keep original discoveredAt
+          device.discoveredAt = existingDevice.discoveredAt
+        }
+
         this.devices.set(device.id, device)
+        this.saveKnownDevices() // Persist to storage
         this.emit('device-found', device)
         console.log(`[Discovery] Device found: ${device.name} at ${device.ip}:${device.port}`)
       }
@@ -47,6 +124,7 @@ export class DiscoveryService extends EventEmitter {
         const device = this.devices.get(deviceId)!
         device.isOnline = false
         device.lastSeen = new Date()
+        this.saveKnownDevices() // Persist offline status
         this.emit('device-removed', deviceId)
         console.log(`[Discovery] Device offline: ${device.name}`)
       }
@@ -64,6 +142,7 @@ export class DiscoveryService extends EventEmitter {
     this.bonjour = null
     this.browser = null
     this.isRunning = false
+    this.saveKnownDevices() // Save on stop
     console.log('[Discovery] Service stopped')
   }
 
@@ -94,7 +173,33 @@ export class DiscoveryService extends EventEmitter {
       isManual: true
     }
     this.devices.set(device.id, device)
+    this.saveKnownDevices()
     return device
+  }
+
+  removeDevice(deviceId: string): boolean {
+    if (this.devices.has(deviceId)) {
+      this.devices.delete(deviceId)
+      this.saveKnownDevices()
+      console.log(`[Discovery] Device removed: ${deviceId}`)
+      return true
+    }
+    return false
+  }
+
+  clearOfflineDevices(): number {
+    let removed = 0
+    for (const [id, device] of this.devices) {
+      if (!device.isOnline) {
+        this.devices.delete(id)
+        removed++
+      }
+    }
+    if (removed > 0) {
+      this.saveKnownDevices()
+      console.log(`[Discovery] Cleared ${removed} offline devices`)
+    }
+    return removed
   }
 
   private parseService(service: Service): DiscoveredDevice | null {

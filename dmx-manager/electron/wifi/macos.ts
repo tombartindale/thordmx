@@ -92,15 +92,38 @@ export class MacOSWifiService implements WifiService {
   }
 
   async getCurrentNetwork(): Promise<string | null> {
+    // Try CoreWLAN first (works best on modern macOS)
     try {
-      // Use networksetup to get current network - works on all macOS versions
+      const swiftCode = `
+import Foundation
+import CoreWLAN
+if let iface = CWWiFiClient.shared().interface(), let ssid = iface.ssid() {
+    print(ssid)
+} else {
+    print("")
+}
+`
+      const { stdout } = await execAsync(`swift -e '${swiftCode}'`, { timeout: 10000 })
+      const ssid = stdout.trim()
+      if (ssid) {
+        console.log(`[WiFi macOS] Current network (CoreWLAN): ${ssid}`)
+        return ssid
+      }
+    } catch (error) {
+      console.log('[WiFi macOS] CoreWLAN getCurrentNetwork failed, trying networksetup...')
+    }
+
+    // Fallback to networksetup
+    try {
       const { stdout } = await execAsync(
         `networksetup -getairportnetwork ${this.interface}`
       )
 
       // Output format: "Current Wi-Fi Network: NetworkName" or "You are not associated with an AirPort network."
       const match = stdout.match(/Current Wi-Fi Network:\s*(.+)/)
-      return match ? match[1].trim() : null
+      const ssid = match ? match[1].trim() : null
+      console.log(`[WiFi macOS] Current network (networksetup): ${ssid}`)
+      return ssid
     } catch (error) {
       console.error('[WiFi macOS] Get current network failed:', error)
       return null
@@ -109,17 +132,28 @@ export class MacOSWifiService implements WifiService {
 
   async getStoredPassword(ssid: string): Promise<string | null> {
     try {
-      // Use the security command to retrieve WiFi password from Keychain
+      // Use the security command to retrieve WiFi password from System keychain
+      // WiFi passwords are stored with kind "AirPort network password"
+      // The -a flag specifies the account name (SSID), -w outputs just the password
       // This will prompt the user for permission (Touch ID or password) on first access
       const { stdout } = await execAsync(
-        `security find-generic-password -wa "${ssid}"`,
+        `security find-generic-password -D "AirPort network password" -a "${ssid}" -w`,
         { timeout: 30000 } // Allow time for user authentication
       )
       return stdout.trim() || null
-    } catch (error) {
-      // Error usually means password not found or user denied access
-      console.error('[WiFi macOS] Get stored password failed:', error)
-      return null
+    } catch {
+      // Try alternate lookup - sometimes the SSID is stored as the "label" (-l) instead of "account" (-a)
+      try {
+        const { stdout: stdout2 } = await execAsync(
+          `security find-generic-password -D "AirPort network password" -l "${ssid}" -w`,
+          { timeout: 30000 }
+        )
+        return stdout2.trim() || null
+      } catch (error) {
+        // Error usually means password not found or user denied access
+        console.error('[WiFi macOS] Get stored password failed:', error)
+        return null
+      }
     }
   }
 

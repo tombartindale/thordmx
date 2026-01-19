@@ -79,7 +79,6 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          draft: true
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.exe

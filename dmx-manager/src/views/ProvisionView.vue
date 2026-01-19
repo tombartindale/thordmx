@@ -2,6 +2,8 @@
 import { ref, onMounted } from 'vue'
 import { useProvisioning, type WifiNetwork } from '@/composables/useProvisioning'
 
+const isDev = import.meta.env.DEV
+
 const {
   isInitialized,
   isScanning,
@@ -29,10 +31,13 @@ const {
 
 const apPattern = ref('THOR-BRIDGE-*')
 const step = ref<'scan' | 'configure' | 'provision' | 'complete'>('scan')
+const credentialsLoaded = ref(false)
 
 onMounted(async () => {
   if (hasElectronAPI.value) {
-    await initialize()
+    const success = await initialize()
+    // Check if credentials were loaded (SSID will be set if they were)
+    credentialsLoaded.value = success && !!config.targetSsid
   }
 })
 
@@ -205,7 +210,15 @@ function getStepLabel(stepType: string): string {
         </div>
       </div>
 
-      <div class="flex justify-end">
+      <div class="flex justify-between">
+        <button
+          v-if="isDev"
+          @click="goToStep('configure')"
+          class="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+        >
+          [DEV] Skip to Configure
+        </button>
+        <div v-else></div>
         <button
           @click="goToStep('configure')"
           :disabled="selectedAPs.length === 0"
@@ -218,6 +231,14 @@ function getStepLabel(stepType: string): string {
 
     <!-- Step 2: Configure -->
     <div v-if="step === 'configure' && hasElectronAPI" class="space-y-6">
+      <!-- Location Services hint -->
+      <div v-if="!credentialsLoaded && isDev" class="bg-yellow-900/50 border border-yellow-600 rounded-lg p-4">
+        <p class="text-yellow-200 text-sm">
+          <strong>Tip:</strong> To auto-fill WiFi credentials, grant Location Services permission to Electron in
+          System Settings → Privacy & Security → Location Services.
+        </p>
+      </div>
+
       <div class="bg-gray-800 rounded-lg p-6">
         <h2 class="text-lg font-semibold text-white mb-4">WiFi Configuration</h2>
 

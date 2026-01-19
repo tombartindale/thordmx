@@ -19,10 +19,10 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { name: 'Devices', path: '/', icon: '📡' },
-  { name: 'Provision', path: '/provision', icon: '📶' },
-  { name: 'Firmware', path: '/firmware', icon: '⬆️' },
-  { name: 'Settings', path: '/settings', icon: '⚙️' }
+  { name: 'Devices', path: '/', icon: 'devices' },
+  { name: 'Provision', path: '/provision', icon: 'wifi_tethering' },
+  { name: 'Firmware', path: '/firmware', icon: 'system_update' },
+  { name: 'Settings', path: '/settings', icon: 'settings' }
 ]
 
 function isActive(path: string): boolean {
@@ -56,7 +56,7 @@ function navigate(path: string) {
               ? 'bg-primary-600 text-white'
               : 'text-gray-300 hover:bg-gray-700 hover:text-white'"
           >
-            <span class="text-lg">{{ item.icon }}</span>
+            <span class="material-icons text-xl">{{ item.icon }}</span>
             <span class="text-sm font-medium">{{ item.name }}</span>
             <span
               v-if="item.badge"

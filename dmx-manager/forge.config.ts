@@ -13,6 +13,17 @@ const config: ForgeConfig = {
     appBundleId: "com.bartindale.tom.thordmx.manager",
     icon: "./public/icons/icon",
     asar: true,
+    extendInfo: {
+      NSLocationWhenInUseUsageDescription:
+        "ThorDMX Bridge Manager needs location access to detect WiFi networks for device provisioning.",
+      NSLocationUsageDescription:
+        "ThorDMX Bridge Manager needs location access to detect WiFi networks for device provisioning.",
+    },
+    osxSign: {
+      optionsForFile: () => ({
+        entitlements: "./build/entitlements.mac.plist",
+      }),
+    },
     ignore: [
       /^\/src/,
       /^\/electron/,

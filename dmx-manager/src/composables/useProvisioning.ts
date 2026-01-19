@@ -100,10 +100,14 @@ export function useProvisioning() {
 
   async function loadCurrentCredentials(): Promise<boolean> {
     try {
+      console.log('[Provisioning] Loading current WiFi credentials...')
       const result = await (window as any).electronAPI.wifi.getCurrentCredentials()
+      console.log('[Provisioning] Credentials result:', result)
       if (result.success && result.credentials) {
-        config.targetSsid = result.credentials.ssid
-        config.targetPassword = result.credentials.password
+        config.targetSsid = result.credentials.ssid || ''
+        config.targetPassword = result.credentials.password || ''
+        console.log('[Provisioning] Set targetSsid:', config.targetSsid)
+        console.log('[Provisioning] Set targetPassword:', config.targetPassword ? '(set)' : '(empty)')
         return true
       }
       return false

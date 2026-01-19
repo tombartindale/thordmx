@@ -56,15 +56,17 @@ export class WifiProvisioningService extends EventEmitter {
     console.log(`[WiFi] Initialized. Current network: ${this.originalNetwork}`)
   }
 
-  async getCurrentNetworkCredentials(): Promise<{ ssid: string; password: string } | null> {
+  async getCurrentNetworkCredentials(): Promise<{ ssid: string; password: string | null }  | null> {
     if (!this.wifiService) throw new Error('WiFi service not initialized')
 
     const ssid = await this.wifiService.getCurrentNetwork()
+    console.log(`[WiFi] Current network SSID: ${ssid}`)
     if (!ssid) return null
 
     const password = await this.wifiService.getStoredPassword(ssid)
-    if (!password) return null
+    console.log(`[WiFi] Password retrieved: ${password ? 'yes' : 'no'}`)
 
+    // Return SSID even if password couldn't be retrieved
     return { ssid, password }
   }
 
