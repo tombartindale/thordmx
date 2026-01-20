@@ -18,7 +18,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'bonjour-service', 'node-wifi']
+              external: ['electron', 'bonjour-service', 'node-wifi', 'serialport', '@serialport/parser-readline']
             }
           }
         }

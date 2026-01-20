@@ -1,43 +1,79 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useProvisioning, type WifiNetwork } from '@/composables/useProvisioning'
+import { useSerialProvisioning } from '@/composables/useSerialProvisioning'
 
 const isDev = import.meta.env.DEV
 
+// Provisioning mode: 'wifi' or 'serial'
+const provisioningMode = ref<'wifi' | 'serial'>('wifi')
+
+// WiFi provisioning
 const {
-  isInitialized,
   isScanning,
-  isProvisioning,
+  isProvisioning: isWifiProvisioning,
   networks,
   selectedAPs,
   currentStep,
   currentDeviceIndex,
   currentDeviceSsid,
-  results,
-  error,
-  config,
+  results: wifiResults,
+  error: wifiError,
+  config: wifiConfig,
   hasElectronAPI,
   progress,
-  completedCount,
-  failedCount,
-  initialize,
+  completedCount: wifiCompletedCount,
+  failedCount: wifiFailedCount,
+  initialize: initializeWifi,
   scanNetworks,
   toggleAPSelection,
   selectAllAPs,
   deselectAllAPs,
   startProvisioning,
-  reset
+  reset: resetWifi
 } = useProvisioning()
+
+// Serial provisioning
+const {
+  isWatching,
+  devices: serialDevices,
+  results: serialResults,
+  error: serialError,
+  config: serialConfig,
+  currentProvisioningDevice,
+  completedCount: serialCompletedCount,
+  failedCount: serialFailedCount,
+  initialize: initializeSerial,
+  startAutoProvisioning,
+  stopAutoProvisioning,
+  reset: resetSerial
+} = useSerialProvisioning()
 
 const apPattern = ref('THOR-BRIDGE-*')
 const step = ref<'scan' | 'configure' | 'provision' | 'complete'>('scan')
 const credentialsLoaded = ref(false)
 
+// Sync config between wifi and serial
+watch(() => wifiConfig.targetSsid, (val) => { serialConfig.targetSsid = val })
+watch(() => wifiConfig.targetPassword, (val) => { serialConfig.targetPassword = val })
+watch(() => wifiConfig.deviceNameTemplate, (val) => { serialConfig.deviceNameTemplate = val })
+watch(() => wifiConfig.startingNumber, (val) => { serialConfig.startingNumber = val })
+watch(() => wifiConfig.sacnUniverse, (val) => { serialConfig.sacnUniverse = val })
+
 onMounted(async () => {
   if (hasElectronAPI.value) {
-    const success = await initialize()
+    const success = await initializeWifi()
     // Check if credentials were loaded (SSID will be set if they were)
-    credentialsLoaded.value = success && !!config.targetSsid
+    credentialsLoaded.value = success && !!wifiConfig.targetSsid
+
+    // Also sync to serial config
+    if (wifiConfig.targetSsid) {
+      serialConfig.targetSsid = wifiConfig.targetSsid
+      serialConfig.targetPassword = wifiConfig.targetPassword
+    }
+
+    // Initialize serial service
+    await initializeSerial()
   }
 })
 
@@ -76,9 +112,26 @@ async function handleStartProvisioning() {
 }
 
 function handleReset() {
-  reset()
+  resetWifi()
   step.value = 'scan'
 }
+
+// Serial provisioning functions
+async function handleStartSerialWatching() {
+  await startAutoProvisioning()
+}
+
+async function handleStopSerialWatching() {
+  await stopAutoProvisioning()
+}
+
+function handleResetSerial() {
+  resetSerial()
+}
+
+// Computed values based on mode
+const error = computed(() => provisioningMode.value === 'wifi' ? wifiError.value : serialError.value)
+const isProvisioning = computed(() => provisioningMode.value === 'wifi' ? isWifiProvisioning.value : isWatching.value)
 
 function getStepLabel(stepType: string): string {
   switch (stepType) {
@@ -99,6 +152,32 @@ function getStepLabel(stepType: string): string {
   <div class="p-6 max-w-4xl mx-auto">
     <h1 class="text-2xl font-bold text-white mb-6">Device Provisioning</h1>
 
+    <!-- Mode toggle -->
+    <div v-if="hasElectronAPI" class="flex gap-2 mb-6">
+      <button
+        @click="provisioningMode = 'wifi'"
+        :class="[
+          'px-4 py-2 rounded-lg transition-colors',
+          provisioningMode === 'wifi'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+        ]"
+      >
+        WiFi Provisioning
+      </button>
+      <button
+        @click="provisioningMode = 'serial'"
+        :class="[
+          'px-4 py-2 rounded-lg transition-colors',
+          provisioningMode === 'serial'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+        ]"
+      >
+        USB Serial Provisioning
+      </button>
+    </div>
+
     <!-- Not in Electron warning -->
     <div v-if="!hasElectronAPI" class="bg-yellow-900/50 border border-yellow-600 rounded-lg p-4 mb-6">
       <p class="text-yellow-200">
@@ -111,6 +190,9 @@ function getStepLabel(stepType: string): string {
     <div v-if="error" class="bg-red-900/50 border border-red-600 rounded-lg p-4 mb-6">
       <p class="text-red-200">{{ error }}</p>
     </div>
+
+    <!-- WiFi Provisioning Mode -->
+    <template v-if="provisioningMode === 'wifi'">
 
     <!-- Step indicator -->
     <div class="flex items-center mb-8" v-if="hasElectronAPI">
@@ -246,7 +328,7 @@ function getStepLabel(stepType: string): string {
           <div>
             <label class="block text-gray-300 text-sm mb-2">Target Network SSID</label>
             <input
-              v-model="config.targetSsid"
+              v-model="wifiConfig.targetSsid"
               type="text"
               placeholder="Your WiFi network name"
               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
@@ -255,7 +337,7 @@ function getStepLabel(stepType: string): string {
           <div>
             <label class="block text-gray-300 text-sm mb-2">Target Network Password</label>
             <input
-              v-model="config.targetPassword"
+              v-model="wifiConfig.targetPassword"
               type="password"
               placeholder="WiFi password"
               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
@@ -271,7 +353,7 @@ function getStepLabel(stepType: string): string {
           <div>
             <label class="block text-gray-300 text-sm mb-2">Device Name Template</label>
             <input
-              v-model="config.deviceNameTemplate"
+              v-model="wifiConfig.deviceNameTemplate"
               type="text"
               placeholder="DMX-Stage-{n}"
               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
@@ -281,7 +363,7 @@ function getStepLabel(stepType: string): string {
           <div>
             <label class="block text-gray-300 text-sm mb-2">Starting Number</label>
             <input
-              v-model.number="config.startingNumber"
+              v-model.number="wifiConfig.startingNumber"
               type="number"
               min="1"
               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
@@ -290,7 +372,7 @@ function getStepLabel(stepType: string): string {
           <div>
             <label class="block text-gray-300 text-sm mb-2">sACN Universe</label>
             <input
-              v-model.number="config.sacnUniverse"
+              v-model.number="wifiConfig.sacnUniverse"
               type="number"
               min="1"
               max="63999"
@@ -306,7 +388,7 @@ function getStepLabel(stepType: string): string {
         <div class="space-y-2">
           <div v-for="(ssid, index) in selectedAPs.slice(0, 5)" :key="ssid" class="flex justify-between text-sm">
             <span class="text-gray-400">{{ ssid }}</span>
-            <span class="text-white">→ {{ config.deviceNameTemplate.replace('{n}', String(config.startingNumber + index)) }} (Universe {{ config.sacnUniverse }})</span>
+            <span class="text-white">→ {{ wifiConfig.deviceNameTemplate.replace('{n}', String(wifiConfig.startingNumber + index)) }} (Universe {{ wifiConfig.sacnUniverse }})</span>
           </div>
           <p v-if="selectedAPs.length > 5" class="text-gray-500 text-sm">...and {{ selectedAPs.length - 5 }} more</p>
         </div>
@@ -321,7 +403,7 @@ function getStepLabel(stepType: string): string {
         </button>
         <button
           @click="handleStartProvisioning"
-          :disabled="!config.targetSsid || !config.targetPassword"
+          :disabled="!wifiConfig.targetSsid || !wifiConfig.targetPassword"
           class="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
         >
           Start Provisioning {{ selectedAPs.length }} Device(s)
@@ -362,7 +444,7 @@ function getStepLabel(stepType: string): string {
         <!-- Results list -->
         <div class="space-y-2">
           <div
-            v-for="result in results"
+            v-for="result in wifiResults"
             :key="result.apSsid"
             class="flex items-center justify-between p-3 rounded-lg"
             :class="result.success ? 'bg-green-900/20' : 'bg-red-900/20'"
@@ -387,11 +469,11 @@ function getStepLabel(stepType: string): string {
     <div v-if="step === 'complete' && hasElectronAPI" class="space-y-6">
       <div class="bg-gray-800 rounded-lg p-6 text-center">
         <div class="text-6xl mb-4">
-          {{ failedCount === 0 ? '✓' : '⚠' }}
+          {{ wifiFailedCount === 0 ? '✓' : '⚠' }}
         </div>
         <h2 class="text-2xl font-bold text-white mb-2">Provisioning Complete</h2>
         <p class="text-gray-400 mb-6">
-          {{ completedCount }} of {{ selectedAPs.length }} devices provisioned successfully
+          {{ wifiCompletedCount }} of {{ selectedAPs.length }} devices provisioned successfully
         </p>
 
         <div class="flex justify-center gap-4">
@@ -409,7 +491,7 @@ function getStepLabel(stepType: string): string {
         <h3 class="text-lg font-semibold text-white mb-4">Results Summary</h3>
         <div class="space-y-2">
           <div
-            v-for="result in results"
+            v-for="result in wifiResults"
             :key="result.apSsid"
             class="flex items-center justify-between p-3 rounded-lg"
             :class="result.success ? 'bg-green-900/20' : 'bg-red-900/20'"
@@ -429,5 +511,177 @@ function getStepLabel(stepType: string): string {
         </div>
       </div>
     </div>
+
+    </template>
+
+    <!-- Serial Provisioning Mode -->
+    <template v-if="provisioningMode === 'serial'">
+      <div class="space-y-6">
+        <!-- Serial Configuration -->
+        <div class="bg-gray-800 rounded-lg p-6">
+          <h2 class="text-lg font-semibold text-white mb-4">USB Serial Provisioning</h2>
+          <p class="text-gray-400 mb-4">
+            Connect devices via USB and they will be automatically provisioned with the settings below.
+            Devices appear as <code class="bg-gray-700 px-1 rounded">/dev/tty.usbmodem*</code> on macOS.
+          </p>
+
+          <!-- WiFi Configuration -->
+          <div class="grid grid-cols-2 gap-6 mb-6">
+            <div>
+              <label class="block text-gray-300 text-sm mb-2">Target Network SSID</label>
+              <input
+                v-model="serialConfig.targetSsid"
+                type="text"
+                placeholder="Your WiFi network name"
+                :disabled="isWatching"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label class="block text-gray-300 text-sm mb-2">Target Network Password</label>
+              <input
+                v-model="serialConfig.targetPassword"
+                type="password"
+                placeholder="WiFi password"
+                :disabled="isWatching"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          <!-- Device Configuration -->
+          <div class="grid grid-cols-3 gap-6 mb-6">
+            <div>
+              <label class="block text-gray-300 text-sm mb-2">Device Name Template</label>
+              <input
+                v-model="serialConfig.deviceNameTemplate"
+                type="text"
+                placeholder="DMX-Device-{n}"
+                :disabled="isWatching"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <p class="text-gray-500 text-xs mt-1">Use {n} for sequential numbering</p>
+            </div>
+            <div>
+              <label class="block text-gray-300 text-sm mb-2">Starting Number</label>
+              <input
+                v-model.number="serialConfig.startingNumber"
+                type="number"
+                min="1"
+                :disabled="isWatching"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label class="block text-gray-300 text-sm mb-2">sACN Universe</label>
+              <input
+                v-model.number="serialConfig.sacnUniverse"
+                type="number"
+                min="1"
+                max="63999"
+                :disabled="isWatching"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          <!-- Start/Stop Button -->
+          <div class="flex gap-4">
+            <button
+              v-if="!isWatching"
+              @click="handleStartSerialWatching"
+              :disabled="!serialConfig.targetSsid || !serialConfig.targetPassword"
+              class="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+            >
+              Start Auto-Provisioning
+            </button>
+            <button
+              v-else
+              @click="handleStopSerialWatching"
+              class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              Stop Auto-Provisioning
+            </button>
+            <button
+              v-if="serialResults.length > 0"
+              @click="handleResetSerial"
+              class="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+            >
+              Clear Results
+            </button>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div v-if="isWatching" class="bg-blue-900/30 border border-blue-600 rounded-lg p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+            <p class="text-blue-200">
+              Watching for USB devices... Plug in a device to provision it automatically.
+            </p>
+          </div>
+        </div>
+
+        <!-- Current provisioning -->
+        <div v-if="currentProvisioningDevice" class="bg-gray-800 rounded-lg p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+            <div>
+              <p class="text-white font-medium">Provisioning device...</p>
+              <p class="text-gray-400 text-sm">{{ currentProvisioningDevice }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connected Devices -->
+        <div v-if="serialDevices.length > 0" class="bg-gray-800 rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Connected USB Devices</h3>
+          <div class="space-y-2">
+            <div
+              v-for="device in serialDevices"
+              :key="device.path"
+              class="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg"
+            >
+              <div>
+                <p class="text-white font-mono">{{ device.path }}</p>
+                <p v-if="device.manufacturer" class="text-gray-400 text-sm">{{ device.manufacturer }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div v-if="serialResults.length > 0" class="bg-gray-800 rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">
+            Provisioning Results
+            <span class="text-sm font-normal text-gray-400 ml-2">
+              ({{ serialCompletedCount }} success, {{ serialFailedCount }} failed)
+            </span>
+          </h3>
+          <div class="space-y-2">
+            <div
+              v-for="(result, index) in serialResults"
+              :key="index"
+              class="flex items-center justify-between p-3 rounded-lg"
+              :class="result.success ? 'bg-green-900/20' : 'bg-red-900/20'"
+            >
+              <div class="flex items-center gap-3">
+                <span v-if="result.success" class="text-green-400 text-xl">✓</span>
+                <span v-else class="text-red-400 text-xl">✗</span>
+                <div>
+                  <p class="text-white font-mono text-sm">{{ result.path }}</p>
+                  <p v-if="result.success" class="text-gray-400 text-sm">
+                    Configured as {{ result.deviceName }}
+                    <span v-if="result.macAddress" class="text-gray-500">({{ result.macAddress }})</span>
+                  </p>
+                  <p v-else class="text-red-400 text-sm">{{ result.error }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
   </div>
 </template>

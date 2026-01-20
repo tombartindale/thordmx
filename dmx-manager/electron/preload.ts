@@ -10,6 +10,31 @@ export interface WifiNetwork {
   frequency: number
 }
 
+export interface SerialDeviceInfo {
+  path: string
+  vendorId?: string
+  productId?: string
+  manufacturer?: string
+  serialNumber?: string
+}
+
+export interface SerialDeviceStatus {
+  device_name: string
+  firmware_version: string
+  wifi_connected: boolean
+  wifi_ssid: string
+  mac_address: string
+  sacn_universe: number
+}
+
+export interface SerialProvisioningResult {
+  path: string
+  success: boolean
+  deviceName?: string
+  macAddress?: string
+  error?: string
+}
+
 export interface ElectronAPI {
   discovery: {
     start: () => Promise<{ success: boolean }>
@@ -34,6 +59,30 @@ export interface ElectronAPI {
     onConnected: (callback: (data: { ssid: string }) => void) => void
     onConnectionFailed: (callback: (data: { ssid: string }) => void) => void
     onReconnecting: (callback: (data: { ssid: string }) => void) => void
+  }
+  serial: {
+    initialize: () => Promise<{ success: boolean; error?: string }>
+    listDevices: () => Promise<{ success: boolean; devices?: SerialDeviceInfo[]; error?: string }>
+    getDeviceStatus: (portPath: string) => Promise<{ success: boolean; status?: SerialDeviceStatus; error?: string }>
+    provision: (portPath: string, config: {
+      device_name: string
+      wifi_ssid: string
+      wifi_password: string
+      sacn_universe: number
+    }) => Promise<SerialProvisioningResult>
+    startWatching: (config?: {
+      deviceNameTemplate: string
+      startingNumber: number
+      wifi_ssid: string
+      wifi_password: string
+      sacn_universe: number
+    }) => Promise<{ success: boolean; error?: string }>
+    stopWatching: () => Promise<{ success: boolean; error?: string }>
+    onDeviceConnected: (callback: (data: SerialDeviceInfo) => void) => void
+    onDeviceDisconnected: (callback: (data: { path: string }) => void) => void
+    onProvisioningStarted: (callback: (data: { path: string; deviceName: string }) => void) => void
+    onProvisioningCompleted: (callback: (data: SerialProvisioningResult) => void) => void
+    onProvisioningFailed: (callback: (data: SerialProvisioningResult) => void) => void
   }
 }
 
@@ -72,6 +121,40 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     onReconnecting: (callback: (data: { ssid: string }) => void) => {
       ipcRenderer.on('wifi:reconnecting', (_event, data) => callback(data))
+    }
+  },
+  serial: {
+    initialize: () => ipcRenderer.invoke('serial:initialize'),
+    listDevices: () => ipcRenderer.invoke('serial:list-devices'),
+    getDeviceStatus: (portPath: string) => ipcRenderer.invoke('serial:get-device-status', portPath),
+    provision: (portPath: string, config: {
+      device_name: string
+      wifi_ssid: string
+      wifi_password: string
+      sacn_universe: number
+    }) => ipcRenderer.invoke('serial:provision', portPath, config),
+    startWatching: (config?: {
+      deviceNameTemplate: string
+      startingNumber: number
+      wifi_ssid: string
+      wifi_password: string
+      sacn_universe: number
+    }) => ipcRenderer.invoke('serial:start-watching', config),
+    stopWatching: () => ipcRenderer.invoke('serial:stop-watching'),
+    onDeviceConnected: (callback: (data: any) => void) => {
+      ipcRenderer.on('serial:device-connected', (_event, data) => callback(data))
+    },
+    onDeviceDisconnected: (callback: (data: { path: string }) => void) => {
+      ipcRenderer.on('serial:device-disconnected', (_event, data) => callback(data))
+    },
+    onProvisioningStarted: (callback: (data: { path: string; deviceName: string }) => void) => {
+      ipcRenderer.on('serial:provisioning-started', (_event, data) => callback(data))
+    },
+    onProvisioningCompleted: (callback: (data: any) => void) => {
+      ipcRenderer.on('serial:provisioning-completed', (_event, data) => callback(data))
+    },
+    onProvisioningFailed: (callback: (data: any) => void) => {
+      ipcRenderer.on('serial:provisioning-failed', (_event, data) => callback(data))
     }
   }
 })

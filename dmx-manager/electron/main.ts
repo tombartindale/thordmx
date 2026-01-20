@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "path";
 import { DiscoveryService } from "./discovery";
 import { WifiProvisioningService } from "./wifi";
+import { SerialProvisioningService } from "./serial";
 
 // Request location permission on macOS (required for WiFi SSID access)
 async function requestLocationPermission(): Promise<{ authorized: boolean; status: number }> {
@@ -84,6 +85,7 @@ if currentStatus == .notDetermined {
 let mainWindow: BrowserWindow | null = null;
 let discoveryService: DiscoveryService | null = null;
 let wifiService: WifiProvisioningService | null = null;
+let serialService: SerialProvisioningService | null = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -296,5 +298,141 @@ ipcMain.handle("wifi:check-location-authorization", async () => {
   } catch (error) {
     console.error("[WiFi] Check location authorization failed:", error);
     return { success: false, authorized: false, status: 0, error: (error as Error).message };
+  }
+});
+
+// Serial Provisioning IPC Handlers
+ipcMain.handle("serial:initialize", async () => {
+  console.log("[Serial] Initializing serial service...");
+  try {
+    serialService = new SerialProvisioningService();
+    console.log("[Serial] SerialProvisioningService created");
+
+    // Forward events to renderer
+    serialService.on("device-connected", (data) => {
+      mainWindow?.webContents.send("serial:device-connected", data);
+    });
+    serialService.on("device-disconnected", (data) => {
+      mainWindow?.webContents.send("serial:device-disconnected", data);
+    });
+    serialService.on("provisioning-started", (data) => {
+      mainWindow?.webContents.send("serial:provisioning-started", data);
+    });
+    serialService.on("provisioning-completed", (data) => {
+      mainWindow?.webContents.send("serial:provisioning-completed", data);
+    });
+    serialService.on("provisioning-failed", (data) => {
+      mainWindow?.webContents.send("serial:provisioning-failed", data);
+    });
+
+    console.log("[Serial] Serial service initialized successfully");
+    return { success: true };
+  } catch (error) {
+    console.error("[Serial] Initialization failed:", error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle("serial:list-devices", async () => {
+  try {
+    if (!serialService) {
+      return { success: false, error: "Serial service not initialized" };
+    }
+    const devices = await serialService.listDevices();
+    return { success: true, devices };
+  } catch (error) {
+    console.error("[Serial] List devices failed:", error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle("serial:get-device-status", async (_event, portPath: string) => {
+  try {
+    if (!serialService) {
+      return { success: false, error: "Serial service not initialized" };
+    }
+    const status = await serialService.getDeviceStatus(portPath);
+    return { success: !!status, status };
+  } catch (error) {
+    console.error("[Serial] Get device status failed:", error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle("serial:provision", async (_event, portPath: string, config: {
+  device_name: string;
+  wifi_ssid: string;
+  wifi_password: string;
+  sacn_universe: number;
+}) => {
+  try {
+    if (!serialService) {
+      return { success: false, error: "Serial service not initialized" };
+    }
+    const result = await serialService.manualProvision(portPath, config);
+    return result;
+  } catch (error) {
+    console.error("[Serial] Provision failed:", error);
+    return { success: false, path: portPath, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle("serial:start-watching", async (_event, config?: {
+  deviceNameTemplate: string;
+  startingNumber: number;
+  wifi_ssid: string;
+  wifi_password: string;
+  sacn_universe: number;
+}) => {
+  try {
+    // Auto-initialize if not already done
+    if (!serialService) {
+      console.log("[Serial] Auto-initializing serial service for start-watching...");
+      serialService = new SerialProvisioningService();
+
+      // Forward events to renderer
+      serialService.on("device-connected", (data) => {
+        mainWindow?.webContents.send("serial:device-connected", data);
+      });
+      serialService.on("device-disconnected", (data) => {
+        mainWindow?.webContents.send("serial:device-disconnected", data);
+      });
+      serialService.on("provisioning-started", (data) => {
+        mainWindow?.webContents.send("serial:provisioning-started", data);
+      });
+      serialService.on("provisioning-completed", (data) => {
+        mainWindow?.webContents.send("serial:provisioning-completed", data);
+      });
+      serialService.on("provisioning-failed", (data) => {
+        mainWindow?.webContents.send("serial:provisioning-failed", data);
+      });
+      console.log("[Serial] Serial service auto-initialized");
+    }
+
+    if (config) {
+      console.log("[Serial] Received config:", JSON.stringify(config, null, 2));
+      serialService.setAutoProvisionConfig(config);
+    } else {
+      console.log("[Serial] No config provided, using defaults");
+    }
+
+    serialService.startWatching();
+    return { success: true };
+  } catch (error) {
+    console.error("[Serial] Start watching failed:", error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle("serial:stop-watching", async () => {
+  try {
+    if (!serialService) {
+      return { success: false, error: "Serial service not initialized" };
+    }
+    serialService.stopWatching();
+    return { success: true };
+  } catch (error) {
+    console.error("[Serial] Stop watching failed:", error);
+    return { success: false, error: (error as Error).message };
   }
 });
