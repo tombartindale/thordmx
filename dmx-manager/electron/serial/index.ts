@@ -384,6 +384,7 @@ export class SerialProvisioningService extends EventEmitter {
     }
     this.isWatching = false
     this.knownDevices.clear()
+    this.pendingConfig = null  // Clear config to prevent auto-provisioning
     console.log('[Serial] Stopped device watch')
   }
 
