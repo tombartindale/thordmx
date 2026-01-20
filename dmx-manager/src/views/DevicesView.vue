@@ -69,6 +69,14 @@ function handleAddDevice() {
   }
 }
 
+async function handleRemoveSelected() {
+  await devicesStore.removeSelectedDevices()
+  // Clear detail panel if the selected device was removed
+  if (selectedDevice.value && !devicesStore.devices.has(selectedDevice.value.id)) {
+    selectedDevice.value = null
+  }
+}
+
 onMounted(() => {
   devicesStore.startDiscovery()
   devicesStore.startStatusPolling(5000)
@@ -166,6 +174,12 @@ onUnmounted(() => {
           class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-sm text-white rounded-lg transition-colors"
         >
           Reboot Selected
+        </button>
+        <button
+          @click="handleRemoveSelected"
+          class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-sm text-white rounded-lg transition-colors"
+        >
+          Remove Selected
         </button>
       </div>
     </div>

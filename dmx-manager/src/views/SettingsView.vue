@@ -71,7 +71,7 @@ const settingsStore = useSettingsStore()
       </div>
 
       <!-- UI settings -->
-      <div class="bg-gray-800 rounded-xl p-6">
+      <!-- <div class="bg-gray-800 rounded-xl p-6">
         <h2 class="text-lg font-medium text-gray-100 mb-4">Interface</h2>
 
         <div class="space-y-4">
@@ -95,7 +95,7 @@ const settingsStore = useSettingsStore()
             />
           </label>
         </div>
-      </div>
+      </div> -->
 
       <!-- Notifications -->
       <div class="bg-gray-800 rounded-xl p-6">

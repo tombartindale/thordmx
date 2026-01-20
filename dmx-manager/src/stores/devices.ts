@@ -11,6 +11,7 @@ declare global {
         stop: () => Promise<{ success: boolean }>
         refresh: () => Promise<{ success: boolean }>
         getDevices: () => Promise<Device[]>
+        removeDevice: (deviceId: string) => Promise<{ success: boolean }>
         onDeviceFound: (callback: (device: Device) => void) => void
         onDeviceRemoved: (callback: (deviceId: string) => void) => void
       }
@@ -38,10 +39,22 @@ export const useDevicesStore = defineStore('devices', () => {
     devices.value.set(device.id, device)
   }
 
-  function removeDevice(deviceId: string) {
+  async function removeDevice(deviceId: string) {
+    // Remove from backend storage if in Electron
+    if (window.electronAPI) {
+      await window.electronAPI.discovery.removeDevice(deviceId)
+    }
+    // Remove from local state
     devices.value.delete(deviceId)
     deviceStatuses.value.delete(deviceId)
     selectedDeviceIds.value.delete(deviceId)
+  }
+
+  async function removeSelectedDevices() {
+    const idsToRemove = Array.from(selectedDeviceIds.value)
+    for (const deviceId of idsToRemove) {
+      await removeDevice(deviceId)
+    }
   }
 
   function updateDevice(deviceId: string, updates: Partial<Device>) {
@@ -74,6 +87,14 @@ export const useDevicesStore = defineStore('devices', () => {
   async function startDiscovery() {
     if (window.electronAPI) {
       // Electron environment - use native mDNS
+
+      // First, load any stored devices from the backend
+      const storedDevices = await window.electronAPI.discovery.getDevices()
+      for (const device of storedDevices) {
+        addDevice(device)
+      }
+
+      // Set up event listeners for device discovery events
       window.electronAPI.discovery.onDeviceFound((device) => {
         addDevice(device)
       })
@@ -169,6 +190,7 @@ export const useDevicesStore = defineStore('devices', () => {
     // Actions
     addDevice,
     removeDevice,
+    removeSelectedDevices,
     updateDevice,
     setDeviceStatus,
     toggleDeviceSelection,
