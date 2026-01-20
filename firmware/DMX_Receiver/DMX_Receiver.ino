@@ -24,7 +24,7 @@
 #include "dmx_driver.h"
 
 // Version
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.0.1"
 
 // Pin definitions
 #define DMX_TX_PIN 1

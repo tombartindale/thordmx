@@ -7,7 +7,6 @@
 # Arduino
 build/
 *.elf
-*.bin
 *.hex
 
 # IDE
