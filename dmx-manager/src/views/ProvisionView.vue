@@ -159,7 +159,7 @@ function getStepLabel(stepType: string): string {
         :class="[
           'px-4 py-2 rounded-lg transition-colors',
           provisioningMode === 'wifi'
-            ? 'bg-blue-600 text-white'
+            ? 'bg-primary-600 text-white'
             : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
         ]"
       >
@@ -170,7 +170,7 @@ function getStepLabel(stepType: string): string {
         :class="[
           'px-4 py-2 rounded-lg transition-colors',
           provisioningMode === 'serial'
-            ? 'bg-blue-600 text-white'
+            ? 'bg-primary-600 text-white'
             : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
         ]"
       >
@@ -241,7 +241,7 @@ function getStepLabel(stepType: string): string {
           <button
             @click="handleScan"
             :disabled="isScanning"
-            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+            class="px-6 py-2 bg-primary-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
           >
             {{ isScanning ? 'Scanning...' : 'Scan Networks' }}
           </button>
@@ -304,7 +304,7 @@ function getStepLabel(stepType: string): string {
         <button
           @click="goToStep('configure')"
           :disabled="selectedAPs.length === 0"
-          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+          class="px-6 py-2 bg-primary-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
         >
           Next: Configure ({{ selectedAPs.length }} selected)
         </button>
@@ -479,7 +479,7 @@ function getStepLabel(stepType: string): string {
         <div class="flex justify-center gap-4">
           <button
             @click="handleReset"
-            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            class="px-6 py-2 bg-primary-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             Provision More Devices
           </button>

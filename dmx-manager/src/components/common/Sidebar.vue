@@ -38,7 +38,7 @@ function navigate(path: string) {
   <aside class="w-56 bg-gray-800 border-r border-gray-700 flex flex-col">
     <!-- Status summary -->
     <div class="p-4 border-b border-gray-700">
-      <div class="text-xs text-gray-400 uppercase tracking-wide mb-2">Fleet Status</div>
+      <div class="text-xs text-gray-400 uppercase tracking-wide mb-2">Rig Status</div>
       <div class="flex items-center gap-2">
         <span class="status-dot status-online"></span>
         <span class="text-sm text-gray-300">{{ onlineCount }} / {{ totalCount }} Online</span>
