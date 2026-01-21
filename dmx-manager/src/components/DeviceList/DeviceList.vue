@@ -10,7 +10,7 @@ const emit = defineEmits<{
 
 const devicesStore = useDevicesStore()
 const searchQuery = ref('')
-const sortField = ref<'name' | 'ip' | 'universe' | 'status'>('name')
+const sortField = ref<'name' | 'ip' | 'universe' | 'status' | 'signal'>('name')
 const sortDirection = ref<'asc' | 'desc'>('asc')
 const showOffline = ref(true)
 
@@ -45,6 +45,12 @@ const filteredDevices = computed(() => {
       case 'universe':
         comparison = a.universe - b.universe
         break
+      case 'signal': {
+        const rssiA = devicesStore.deviceStatuses.get(a.id)?.wifi_rssi ?? -100
+        const rssiB = devicesStore.deviceStatuses.get(b.id)?.wifi_rssi ?? -100
+        comparison = rssiA - rssiB
+        break
+      }
       case 'status':
         comparison = (a.isOnline ? 1 : 0) - (b.isOnline ? 1 : 0)
         break
@@ -87,9 +93,9 @@ function handleRefresh() {
             v-model="searchQuery"
             type="text"
             placeholder="Search devices..."
-            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 pl-10 text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
-          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          <!-- <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span> -->
         </div>
 
         <button
@@ -129,7 +135,7 @@ function handleRefresh() {
     </div>
 
     <!-- Header row -->
-    <div class="grid grid-cols-[auto_1fr_150px_70px_100px_80px_auto] gap-4 px-4 py-2 bg-gray-800 border-b border-gray-700 text-xs text-gray-400 uppercase tracking-wide">
+    <div class="grid grid-cols-[auto_1fr_150px_70px_100px_70px_80px_auto] gap-4 px-4 py-2 bg-gray-800 border-b border-gray-700 text-xs text-gray-400 tracking-wide">
       <div class="w-6"></div>
       <button @click="toggleSort('name')" class="text-left hover:text-gray-200">
         Name {{ sortField === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
@@ -141,6 +147,9 @@ function handleRefresh() {
         Universe {{ sortField === 'universe' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
       </button>
       <div>Firmware</div>
+      <button @click="toggleSort('signal')" class="text-left hover:text-gray-200">
+        Signal {{ sortField === 'signal' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
+      </button>
       <button @click="toggleSort('status')" class="text-left hover:text-gray-200">
         Status {{ sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
       </button>
@@ -163,6 +172,7 @@ function handleRefresh() {
           :key="device.id"
           :device="device"
           :is-selected="devicesStore.selectedDeviceIds.has(device.id)"
+          :status="devicesStore.deviceStatuses.get(device.id)"
           @click="handleSelectDevice(device)"
           @toggle-select="devicesStore.toggleDeviceSelection(device.id)"
         />

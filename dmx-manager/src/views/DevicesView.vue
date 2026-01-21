@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDevicesStore } from '../stores/devices'
+import { createDeviceClient } from '../api/client'
 import DeviceList from '../components/DeviceList/DeviceList.vue'
 import DeviceDetail from '../components/DeviceDetail/DeviceDetail.vue'
 import type { Device } from '../api/types'
 
+const router = useRouter()
 const devicesStore = useDevicesStore()
 const selectedDevice = ref<Device | null>(null)
 const showAddModal = ref(false)
@@ -74,6 +77,89 @@ async function handleRemoveSelected() {
   // Clear detail panel if the selected device was removed
   if (selectedDevice.value && !devicesStore.devices.has(selectedDevice.value.id)) {
     selectedDevice.value = null
+  }
+}
+
+// Batch action handlers
+const showBatchConfigModal = ref(false)
+const batchConfigForm = ref({
+  sacn_universe: null as number | null,
+  wifi_ssid: '',
+  wifi_password: ''
+})
+const batchActionInProgress = ref(false)
+const batchActionResults = ref<Map<string, { success: boolean; error?: string }>>(new Map())
+
+function handleConfigureSelected() {
+  batchConfigForm.value = {
+    sacn_universe: null,
+    wifi_ssid: '',
+    wifi_password: ''
+  }
+  batchActionResults.value.clear()
+  showBatchConfigModal.value = true
+}
+
+async function handleBatchConfigSubmit() {
+  const selectedOnline = devicesStore.selectedDevices.filter(d => d.isOnline)
+  if (selectedOnline.length === 0) return
+
+  batchActionInProgress.value = true
+  batchActionResults.value.clear()
+
+  for (const device of selectedOnline) {
+    try {
+      const client = createDeviceClient(device)
+      const updates: Record<string, any> = {}
+
+      if (batchConfigForm.value.sacn_universe !== null) {
+        updates.sacn_universe = batchConfigForm.value.sacn_universe
+      }
+      if (batchConfigForm.value.wifi_ssid) {
+        updates.wifi_ssid = batchConfigForm.value.wifi_ssid
+        if (batchConfigForm.value.wifi_password) {
+          updates.wifi_password = batchConfigForm.value.wifi_password
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const result = await client.setConfig(updates)
+        batchActionResults.value.set(device.id, {
+          success: result.success,
+          error: result.error
+        })
+      } else {
+        batchActionResults.value.set(device.id, { success: true })
+      }
+    } catch (error: any) {
+      batchActionResults.value.set(device.id, {
+        success: false,
+        error: error.message || 'Failed to configure'
+      })
+    }
+  }
+
+  batchActionInProgress.value = false
+}
+
+function handleUpdateFirmwareSelected() {
+  router.push('/firmware')
+}
+
+async function handleRebootSelected() {
+  const selectedOnline = devicesStore.selectedDevices.filter(d => d.isOnline)
+  if (selectedOnline.length === 0) return
+
+  const count = selectedOnline.length
+  if (!confirm(`Are you sure you want to reboot ${count} device(s)?`)) return
+
+  for (const device of selectedOnline) {
+    try {
+      const client = createDeviceClient(device)
+      await client.reboot()
+    } catch {
+      // Expected - device will disconnect during reboot
+    }
   }
 }
 
@@ -161,16 +247,19 @@ onUnmounted(() => {
           {{ devicesStore.selectedDeviceIds.size }} device(s) selected
         </span>
         <button
+          @click="handleConfigureSelected"
           class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-sm text-gray-300 rounded-lg transition-colors"
         >
           Configure Selected
         </button>
         <button
+          @click="handleUpdateFirmwareSelected"
           class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-sm text-gray-300 rounded-lg transition-colors"
         >
           Update Firmware
         </button>
         <button
+          @click="handleRebootSelected"
           class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-sm text-white rounded-lg transition-colors"
         >
           Reboot Selected
@@ -253,6 +342,92 @@ onUnmounted(() => {
             class="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white font-medium rounded-lg transition-colors"
           >
             Add Device
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch config modal -->
+    <div
+      v-if="showBatchConfigModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      @click.self="showBatchConfigModal = false"
+    >
+      <div class="bg-gray-800 rounded-xl p-6 w-[480px] shadow-xl">
+        <h2 class="text-lg font-semibold text-gray-100 mb-4">
+          Configure {{ devicesStore.selectedDevices.filter(d => d.isOnline).length }} Device(s)
+        </h2>
+
+        <p class="text-sm text-gray-400 mb-4">
+          Only fill in the fields you want to change. Empty fields will be left unchanged.
+        </p>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1">sACN Universe</label>
+            <input
+              v-model.number="batchConfigForm.sacn_universe"
+              type="number"
+              min="1"
+              max="63999"
+              placeholder="Leave blank to keep current"
+              :disabled="batchActionInProgress"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1">WiFi SSID</label>
+            <input
+              v-model="batchConfigForm.wifi_ssid"
+              type="text"
+              placeholder="Leave blank to keep current"
+              :disabled="batchActionInProgress"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1">WiFi Password</label>
+            <input
+              v-model="batchConfigForm.wifi_password"
+              type="password"
+              placeholder="Required if changing SSID"
+              :disabled="batchActionInProgress || !batchConfigForm.wifi_ssid"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+            />
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div v-if="batchActionResults.size > 0" class="mt-4 max-h-40 overflow-auto space-y-1">
+          <div
+            v-for="device in devicesStore.selectedDevices.filter(d => d.isOnline)"
+            :key="device.id"
+            class="flex items-center justify-between text-sm p-2 rounded"
+            :class="batchActionResults.get(device.id)?.success ? 'bg-green-900/20' : 'bg-red-900/20'"
+          >
+            <span class="text-gray-300">{{ device.name }}</span>
+            <span v-if="batchActionResults.get(device.id)?.success" class="text-green-400">✓</span>
+            <span v-else class="text-red-400" :title="batchActionResults.get(device.id)?.error">✗</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+          <button
+            @click="showBatchConfigModal = false"
+            :disabled="batchActionInProgress"
+            class="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-600 text-gray-300 font-medium rounded-lg transition-colors"
+          >
+            {{ batchActionResults.size > 0 ? 'Close' : 'Cancel' }}
+          </button>
+          <button
+            v-if="batchActionResults.size === 0"
+            @click="handleBatchConfigSubmit"
+            :disabled="batchActionInProgress || (!batchConfigForm.sacn_universe && !batchConfigForm.wifi_ssid)"
+            class="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+          >
+            {{ batchActionInProgress ? 'Applying...' : 'Apply to All' }}
           </button>
         </div>
       </div>

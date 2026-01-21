@@ -1,13 +1,32 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { Device } from '../../api/types'
+import { ref, computed } from 'vue'
+import type { Device, DeviceStatus } from '../../api/types'
 import StatusIndicator from '../common/StatusIndicator.vue'
 import { DeviceClient } from '../../api/client'
 
 const props = defineProps<{
   device: Device
   isSelected: boolean
+  status?: DeviceStatus | null
 }>()
+
+const rssi = computed(() => props.status?.wifi_rssi ?? null)
+
+const signalClass = computed(() => {
+  if (rssi.value === null) return 'text-gray-500'
+  if (rssi.value > -50) return 'text-green-400'
+  if (rssi.value > -60) return 'text-green-500'
+  if (rssi.value > -70) return 'text-yellow-500'
+  return 'text-red-500'
+})
+
+const signalBars = computed(() => {
+  if (rssi.value === null) return '░░░░'
+  if (rssi.value > -50) return '████'
+  if (rssi.value > -60) return '███░'
+  if (rssi.value > -70) return '██░░'
+  return '█░░░'
+})
 
 const emit = defineEmits<{
   (e: 'click'): void
@@ -41,7 +60,7 @@ async function handleIdentify(event: Event) {
 
 <template>
   <div
-    class="grid grid-cols-[auto_1fr_150px_70px_100px_80px_auto] gap-4 px-4 py-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition-colors"
+    class="grid grid-cols-[auto_1fr_150px_70px_100px_70px_80px_auto] gap-4 px-4 py-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition-colors"
     :class="{ 'bg-gray-800/50': isSelected }"
     @click="emit('click')"
   >
@@ -74,6 +93,11 @@ async function handleIdentify(event: Event) {
     <!-- Firmware -->
     <div class="flex items-center text-sm text-gray-400">
       {{ device.firmwareVersion }}
+    </div>
+
+    <!-- Signal -->
+    <div class="flex items-center text-sm font-mono" :class="signalClass" :title="rssi !== null ? `${rssi} dBm` : 'No data'">
+      {{ signalBars }}
     </div>
 
     <!-- Status -->
