@@ -3,7 +3,8 @@
  * Implements all REST endpoints and captive portal
  */
 
-void setupAPI() {
+void setupAPI()
+{
   // Status endpoint
   server.on("/api/status", HTTP_GET, handleAPIStatus);
 
@@ -35,7 +36,8 @@ void setupAPI() {
   Serial.println("[HTTP] Server started on port 80");
 }
 
-void handleAPIStatus() {
+void handleAPIStatus()
+{
   StaticJsonDocument<1024> doc;
 
   doc["device_name"] = config.device_name;
@@ -43,7 +45,8 @@ void handleAPIStatus() {
   doc["wifi_connected"] = state.wifi_connected;
   doc["wifi_ssid"] = config.wifi_ssid;
 
-  if (state.wifi_connected) {
+  if (state.wifi_connected)
+  {
     doc["wifi_rssi"] = WiFi.RSSI();
     doc["wifi_signal_quality"] = getSignalQuality(WiFi.RSSI());
     doc["ip_address"] = WiFi.localIP().toString();
@@ -54,7 +57,8 @@ void handleAPIStatus() {
   doc["sacn_packets_received"] = state.sacn_packets_received;
   doc["sacn_packets_errors"] = state.sacn_packets_errors;
 
-  if (state.sacn_receiving && state.last_packet_time > 0) {
+  if (state.sacn_receiving && state.last_packet_time > 0)
+  {
     doc["sacn_source_ip"] = state.sacn_source_ip;
     doc["sacn_source_name"] = state.sacn_source_name;
     doc["sacn_priority"] = state.sacn_priority;
@@ -73,7 +77,8 @@ void handleAPIStatus() {
   server.send(200, "application/json", response);
 }
 
-void handleAPIGetConfig() {
+void handleAPIGetConfig()
+{
   StaticJsonDocument<256> doc;
 
   doc["device_name"] = config.device_name;
@@ -85,8 +90,10 @@ void handleAPIGetConfig() {
   server.send(200, "application/json", response);
 }
 
-void handleAPIPostConfig() {
-  if (!server.hasArg("plain")) {
+void handleAPIPostConfig()
+{
+  if (!server.hasArg("plain"))
+  {
     sendError(400, "Missing request body");
     return;
   }
@@ -94,7 +101,8 @@ void handleAPIPostConfig() {
   StaticJsonDocument<512> doc;
   DeserializationError error = deserializeJson(doc, server.arg("plain"));
 
-  if (error) {
+  if (error)
+  {
     sendError(400, "Invalid JSON format");
     return;
   }
@@ -103,9 +111,11 @@ void handleAPIPostConfig() {
   bool reboot_required = false;
 
   // Validate and update WiFi SSID
-  if (doc.containsKey("wifi_ssid")) {
+  if (doc.containsKey("wifi_ssid"))
+  {
     String ssid = doc["wifi_ssid"].as<String>();
-    if (ssid.length() == 0 || ssid.length() > 32) {
+    if (ssid.length() == 0 || ssid.length() > 32)
+    {
       sendError(400, "WiFi SSID must be 1-32 characters");
       return;
     }
@@ -114,9 +124,11 @@ void handleAPIPostConfig() {
   }
 
   // Validate and update WiFi password
-  if (doc.containsKey("wifi_password")) {
+  if (doc.containsKey("wifi_password"))
+  {
     String pass = doc["wifi_password"].as<String>();
-    if (pass.length() < 8 || pass.length() > 63) {
+    if (pass.length() < 8 || pass.length() > 63)
+    {
       sendError(400, "WiFi password must be 8-63 characters");
       return;
     }
@@ -125,9 +137,11 @@ void handleAPIPostConfig() {
   }
 
   // Validate and update sACN universe
-  if (doc.containsKey("sacn_universe")) {
+  if (doc.containsKey("sacn_universe"))
+  {
     uint16_t universe = doc["sacn_universe"];
-    if (universe < 1 || universe > 63999) {
+    if (universe < 1 || universe > 63999)
+    {
       sendError(400, "Universe must be 1-63999");
       return;
     }
@@ -136,9 +150,11 @@ void handleAPIPostConfig() {
   }
 
   // Validate and update device name
-  if (doc.containsKey("device_name")) {
+  if (doc.containsKey("device_name"))
+  {
     String name = doc["device_name"].as<String>();
-    if (name.length() == 0 || name.length() > 32) {
+    if (name.length() == 0 || name.length() > 32)
+    {
       sendError(400, "Device name must be 1-32 characters");
       return;
     }
@@ -154,9 +170,12 @@ void handleAPIPostConfig() {
   response["success"] = true;
   response["reboot_required"] = wifi_changed || reboot_required;
 
-  if (wifi_changed || reboot_required) {
+  if (wifi_changed || reboot_required)
+  {
     response["message"] = "Configuration updated. Reboot required for changes to take effect.";
-  } else {
+  }
+  else
+  {
     response["message"] = "Configuration updated.";
   }
 
@@ -165,7 +184,8 @@ void handleAPIPostConfig() {
   server.send(200, "application/json", json);
 }
 
-void handleAPIReboot() {
+void handleAPIReboot()
+{
   StaticJsonDocument<128> doc;
   doc["success"] = true;
   doc["message"] = "Rebooting in 1 second.";
@@ -178,18 +198,23 @@ void handleAPIReboot() {
   ESP.restart();
 }
 
-void handleAPIIdentify() {
+void handleAPIIdentify()
+{
   // Default 5 seconds, allow override via JSON body
   uint16_t duration_seconds = 5;
 
-  if (server.hasArg("plain")) {
+  if (server.hasArg("plain"))
+  {
     StaticJsonDocument<128> doc;
     DeserializationError error = deserializeJson(doc, server.arg("plain"));
-    if (!error && doc.containsKey("duration")) {
+    if (!error && doc.containsKey("duration"))
+    {
       duration_seconds = doc["duration"].as<uint16_t>();
       // Clamp to reasonable range (1-30 seconds)
-      if (duration_seconds < 1) duration_seconds = 1;
-      if (duration_seconds > 30) duration_seconds = 30;
+      if (duration_seconds < 1)
+        duration_seconds = 1;
+      if (duration_seconds > 30)
+        duration_seconds = 30;
     }
   }
 
@@ -209,17 +234,19 @@ void handleAPIIdentify() {
   Serial.printf("[API] Identify triggered for %d seconds\n", duration_seconds);
 }
 
-void handleAPIGetFirmware() {
-  const esp_partition_t* running = esp_ota_get_running_partition();
-  const esp_partition_t* update = esp_ota_get_next_update_partition(NULL);
+void handleAPIGetFirmware()
+{
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  const esp_partition_t *update = esp_ota_get_next_update_partition(NULL);
 
   StaticJsonDocument<256> doc;
   doc["current_version"] = FIRMWARE_VERSION;
   doc["rollback_available"] = (update != NULL);
   doc["update_confirmed"] = true;
 
-  if (running) {
-    doc["partition_scheme"] = String(running->label) + " (active)";
+  if (running)
+  {
+    doc["current_partition"] = String(running->label) + " (active)";
   }
 
   String response;
@@ -227,16 +254,20 @@ void handleAPIGetFirmware() {
   server.send(200, "application/json", response);
 }
 
-void handleAPIPostFirmware() {
+void handleAPIPostFirmware()
+{
   StaticJsonDocument<128> doc;
 
-  if (Update.hasError()) {
+  if (Update.hasError())
+  {
     doc["success"] = false;
     doc["error"] = "Firmware upload failed";
     String response;
     serializeJson(doc, response);
     server.send(500, "application/json", response);
-  } else {
+  }
+  else
+  {
     doc["success"] = true;
     doc["message"] = "Firmware uploaded successfully. Rebooting...";
     doc["new_version"] = "uploaded";
@@ -252,32 +283,45 @@ void handleAPIPostFirmware() {
   }
 }
 
-void handleFirmwareUpload() {
-  HTTPUpload& upload = server.upload();
+void handleFirmwareUpload()
+{
+  HTTPUpload &upload = server.upload();
 
-  if (upload.status == UPLOAD_FILE_START) {
+  if (upload.status == UPLOAD_FILE_START)
+  {
     Serial.printf("[OTA] Starting firmware update: %s\n", upload.filename.c_str());
 
-    if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN))
+    {
       Update.printError(Serial);
     }
-  } else if (upload.status == UPLOAD_FILE_WRITE) {
-    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+  }
+  else if (upload.status == UPLOAD_FILE_WRITE)
+  {
+    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
+    {
       Update.printError(Serial);
     }
-  } else if (upload.status == UPLOAD_FILE_END) {
-    if (Update.end(true)) {
+  }
+  else if (upload.status == UPLOAD_FILE_END)
+  {
+    if (Update.end(true))
+    {
       Serial.printf("[OTA] Update success. Size: %u bytes\n", upload.totalSize);
-    } else {
+    }
+    else
+    {
       Update.printError(Serial);
     }
   }
 }
 
-void handleAPIFirmwareRollback() {
-  const esp_partition_t* update = esp_ota_get_next_update_partition(NULL);
+void handleAPIFirmwareRollback()
+{
+  const esp_partition_t *update = esp_ota_get_next_update_partition(NULL);
 
-  if (update == NULL) {
+  if (update == NULL)
+  {
     sendError(400, "No previous firmware available for rollback");
     return;
   }
@@ -298,7 +342,8 @@ void handleAPIFirmwareRollback() {
   ESP.restart();
 }
 
-void sendError(int code, String message) {
+void sendError(int code, String message)
+{
   StaticJsonDocument<128> doc;
   doc["success"] = false;
   doc["error"] = message;

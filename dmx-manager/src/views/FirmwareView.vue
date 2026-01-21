@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useDevicesStore } from '../stores/devices'
 import { createDeviceClient } from '../api/client'
-import type { Device } from '../api/types'
+import type { Device, FirmwareInfo } from '../api/types'
 
 const devicesStore = useDevicesStore()
 const selectedFile = ref<File | null>(null)
@@ -10,8 +10,21 @@ const uploading = ref(false)
 const uploadProgress = ref<Map<string, number>>(new Map())
 const uploadResults = ref<Map<string, { success: boolean; error?: string }>>(new Map())
 
+// Rollback state
+const rollingBack = ref(false)
+const rollbackResults = ref<Map<string, { success: boolean; error?: string }>>(new Map())
+const firmwareInfo = ref<Map<string, FirmwareInfo>>(new Map())
+
 const eligibleDevices = computed(() =>
   devicesStore.deviceList.filter(d => d.isOnline)
+)
+
+// Devices that have rollback available
+const rollbackEligibleDevices = computed(() =>
+  selectedDevices.value.filter(d => {
+    const info = firmwareInfo.value.get(d.id)
+    return info?.rollback_available === true
+  })
 )
 
 const selectedDevices = computed(() =>
@@ -61,6 +74,65 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
+
+// Fetch firmware info for a device
+async function fetchFirmwareInfo(device: Device) {
+  try {
+    const client = createDeviceClient(device)
+    const info = await client.getFirmwareInfo()
+    // console.log(info)
+    firmwareInfo.value.set(device.id, info)
+  } catch (error) {
+    // Device might not support firmware info endpoint
+    console.warn(`Failed to fetch firmware info for ${device.name}:`, error)
+  }
+}
+
+// Fetch firmware info for all eligible devices
+async function refreshFirmwareInfo() {
+  await Promise.all(eligibleDevices.value.map(fetchFirmwareInfo))
+}
+
+// Rollback firmware for a single device
+async function rollbackDevice(device: Device): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = createDeviceClient(device)
+    const result = await client.rollbackFirmware()
+    if (result.success) {
+      return { success: true }
+    }
+    return { success: false, error: result.error || 'Rollback failed' }
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Rollback failed' }
+  }
+}
+
+// Start rollback for selected devices
+async function startRollback() {
+  if (rollbackEligibleDevices.value.length === 0) return
+
+  rollingBack.value = true
+  rollbackResults.value.clear()
+
+  for (const device of rollbackEligibleDevices.value) {
+    const result = await rollbackDevice(device)
+    rollbackResults.value.set(device.id, result)
+  }
+
+  rollingBack.value = false
+
+  // Refresh firmware info after rollback
+  await refreshFirmwareInfo()
+}
+
+// Fetch firmware info on mount and when devices change
+onMounted(() => {
+  refreshFirmwareInfo()
+})
+
+watch(eligibleDevices, () => {
+  refreshFirmwareInfo()
+})
 </script>
 
 <template>
@@ -173,6 +245,69 @@ function formatFileSize(bytes: number): string {
         <span v-if="uploading">Uploading...</span>
         <span v-else>Update {{ selectedDevices.length }} Device(s)</span>
       </button>
+
+      <!-- Firmware Rollback -->
+      <div class="bg-gray-800 rounded-xl p-6">
+        <h2 class="text-lg font-medium text-gray-100 mb-2">Firmware Rollback</h2>
+        <p class="text-sm text-gray-400 mb-4">
+          Roll back to the previous firmware version on selected devices. Only devices with a previous firmware available can be rolled back.
+        </p>
+
+        <div v-if="selectedDevices.length === 0" class="text-gray-400 text-center py-4">
+          Select devices above to see rollback options
+        </div>
+
+        <div v-else class="space-y-3">
+          <!-- Rollback status per device -->
+          <div
+            v-for="device in selectedDevices"
+            :key="device.id"
+            class="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg"
+          >
+            <div class="flex-1">
+              <div class="text-gray-100">{{ device.name }}</div>
+              <div class="text-sm text-gray-400">
+                v{{ device.firmwareVersion }}
+                <!-- {{ device }} -->
+                <span v-if="firmwareInfo.get(device.id)?.rollback_available" class="text-yellow-400 ml-2">
+                  (rollback available)
+                </span>
+                <span v-else-if="firmwareInfo.has(device.id)" class="text-gray-500 ml-2">
+                  (no rollback available)
+                </span>
+                <span v-else class="text-gray-500 ml-2">
+                  (checking...)
+                </span>
+              </div>
+            </div>
+
+            <!-- Rollback result -->
+            <div v-if="rollbackResults.has(device.id)">
+              <span
+                v-if="rollbackResults.get(device.id)?.success"
+                class="text-green-400"
+                title="Rollback successful"
+              >✓ Rolled back</span>
+              <span
+                v-else
+                class="text-red-400"
+                :title="rollbackResults.get(device.id)?.error"
+              >✗ Failed</span>
+            </div>
+          </div>
+
+          <!-- Rollback button -->
+          <button
+            @click="startRollback"
+            :disabled="rollbackEligibleDevices.length === 0 || rollingBack || uploading"
+            class="w-full py-3 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+          >
+            <span v-if="rollingBack">Rolling back...</span>
+            <span v-else-if="rollbackEligibleDevices.length === 0">No devices eligible for rollback</span>
+            <span v-else>Rollback {{ rollbackEligibleDevices.length }} Device(s)</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>

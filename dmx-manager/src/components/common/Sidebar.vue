@@ -22,7 +22,7 @@ const navItems: NavItem[] = [
   { name: 'Devices', path: '/', icon: 'devices' },
   { name: 'Provision', path: '/provision', icon: 'wifi_tethering' },
   { name: 'Firmware', path: '/firmware', icon: 'system_update' },
-  { name: 'Settings', path: '/settings', icon: 'settings' }
+  // { name: 'Settings', path: '/settings', icon: 'settings' }  
 ]
 
 function isActive(path: string): boolean {
