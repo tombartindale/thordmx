@@ -54,7 +54,6 @@ const {
 
 const apPattern = ref('THOR-BRIDGE-*')
 const step = ref<'scan' | 'configure' | 'provision' | 'complete'>('scan')
-const credentialsLoaded = ref(false)
 
 // Sync config between wifi and serial
 watch(() => wifiConfig.targetSsid, (val) => { serialConfig.targetSsid = val })
@@ -65,11 +64,9 @@ watch(() => wifiConfig.sacnUniverse, (val) => { serialConfig.sacnUniverse = val 
 
 onMounted(async () => {
   if (hasElectronAPI.value) {
-    const success = await initializeWifi()
-    // Check if credentials were loaded (SSID will be set if they were)
-    credentialsLoaded.value = success && !!wifiConfig.targetSsid
+    await initializeWifi()
 
-    // Also sync to serial config
+    // Sync to serial config if credentials were loaded
     if (wifiConfig.targetSsid) {
       serialConfig.targetSsid = wifiConfig.targetSsid
       serialConfig.targetPassword = wifiConfig.targetPassword
@@ -323,14 +320,6 @@ function getStepLabel(stepType: string): string {
 
     <!-- Step 2: Configure -->
     <div v-if="step === 'configure' && hasElectronAPI" class="space-y-6">
-      <!-- Location Services hint -->
-      <div v-if="!credentialsLoaded && isDev" class="bg-yellow-900/50 border border-yellow-600 rounded-lg p-4">
-        <p class="text-yellow-200 text-sm">
-          <strong>Tip:</strong> To auto-fill WiFi credentials, grant Location Services permission to Electron in
-          System Settings → Privacy & Security → Location Services.
-        </p>
-      </div>
-
       <div class="bg-gray-800 rounded-lg p-6">
         <h2 class="text-lg font-semibold text-white mb-4">WiFi Configuration</h2>
 

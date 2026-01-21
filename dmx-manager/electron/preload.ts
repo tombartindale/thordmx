@@ -56,7 +56,6 @@ export interface ElectronAPI {
     connectDeviceAP: (ssid: string) => Promise<{ success: boolean; error?: string }>
     connectTarget: (ssid: string, password: string) => Promise<{ success: boolean; error?: string }>
     reconnectOriginal: () => Promise<{ success: boolean; error?: string }>
-    checkLocationAuthorization: () => Promise<{ success: boolean; authorized: boolean; status: number; error?: string }>
     onConnecting: (callback: (data: { ssid: string }) => void) => void
     onConnected: (callback: (data: { ssid: string }) => void) => void
     onConnectionFailed: (callback: (data: { ssid: string }) => void) => void
@@ -113,7 +112,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     connectDeviceAP: (ssid: string) => ipcRenderer.invoke('wifi:connect-device-ap', ssid),
     connectTarget: (ssid: string, password: string) => ipcRenderer.invoke('wifi:connect-target', ssid, password),
     reconnectOriginal: () => ipcRenderer.invoke('wifi:reconnect-original'),
-    checkLocationAuthorization: () => ipcRenderer.invoke('wifi:check-location-authorization'),
     onConnecting: (callback: (data: { ssid: string }) => void) => {
       ipcRenderer.on('wifi:connecting', (_event, data) => callback(data))
     },
