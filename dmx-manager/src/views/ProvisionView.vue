@@ -24,13 +24,16 @@ const {
   progress,
   completedCount: wifiCompletedCount,
   failedCount: wifiFailedCount,
+  knownNetworks,
+  isLoadingPassword,
   initialize: initializeWifi,
   scanNetworks,
   toggleAPSelection,
   selectAllAPs,
   deselectAllAPs,
   startProvisioning,
-  reset: resetWifi
+  reset: resetWifi,
+  selectKnownNetwork
 } = useProvisioning()
 
 // Serial provisioning
@@ -79,6 +82,13 @@ onMounted(async () => {
 
 async function handleScan() {
   await scanNetworks(apPattern.value)
+}
+
+async function handleNetworkSelect(event: Event) {
+  const ssid = (event.target as HTMLSelectElement).value
+  if (ssid) {
+    await selectKnownNetwork(ssid)
+  }
 }
 
 function getSignalBars(quality: WifiNetwork['signalQuality']): string {
@@ -324,6 +334,28 @@ function getStepLabel(stepType: string): string {
       <div class="bg-gray-800 rounded-lg p-6">
         <h2 class="text-lg font-semibold text-white mb-4">WiFi Configuration</h2>
 
+        <!-- Known networks dropdown (shown when auto-detection failed but we have known networks) -->
+        <div v-if="knownNetworks.length > 0 && !wifiConfig.targetPassword" class="mb-4">
+          <label class="block text-gray-300 text-sm mb-2">Select from known networks</label>
+          <div class="flex gap-2">
+            <select
+              @change="handleNetworkSelect"
+              :value="wifiConfig.targetSsid"
+              :disabled="isLoadingPassword"
+              class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
+            >
+              <option value="">-- Select a network --</option>
+              <option v-for="ssid in knownNetworks" :key="ssid" :value="ssid">{{ ssid }}</option>
+            </select>
+            <div v-if="isLoadingPassword" class="flex items-center px-3">
+              <div class="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          </div>
+          <p class="text-gray-500 text-xs mt-1">
+            Selecting a network will prompt for your system password to retrieve the WiFi password from keychain.
+          </p>
+        </div>
+
         <div class="grid grid-cols-2 gap-6">
           <div>
             <label class="block text-gray-300 text-sm mb-2">Target Network SSID</label>
@@ -524,6 +556,28 @@ function getStepLabel(stepType: string): string {
             Connect devices via USB and they will be automatically provisioned with the settings below.
             Devices appear as <code class="bg-gray-700 px-1 rounded">/dev/tty.usbmodem*</code> on macOS.
           </p>
+
+          <!-- Known networks dropdown for serial mode too -->
+          <div v-if="knownNetworks.length > 0 && !serialConfig.targetPassword" class="mb-4">
+            <label class="block text-gray-300 text-sm mb-2">Select from known networks</label>
+            <div class="flex gap-2">
+              <select
+                @change="handleNetworkSelect"
+                :value="serialConfig.targetSsid"
+                :disabled="isLoadingPassword || isWatching"
+                class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
+              >
+                <option value="">-- Select a network --</option>
+                <option v-for="ssid in knownNetworks" :key="ssid" :value="ssid">{{ ssid }}</option>
+              </select>
+              <div v-if="isLoadingPassword" class="flex items-center px-3">
+                <div class="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            </div>
+            <p class="text-gray-500 text-xs mt-1">
+              Selecting a network will prompt for your system password to retrieve the WiFi password.
+            </p>
+          </div>
 
           <!-- WiFi Configuration -->
           <div class="grid grid-cols-2 gap-6 mb-6">

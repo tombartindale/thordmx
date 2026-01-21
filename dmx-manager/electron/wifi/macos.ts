@@ -249,29 +249,89 @@ export class MacOSWifiService implements WifiService {
   }
 
   async getStoredPassword(ssid: string): Promise<string | null> {
+    // Escape double quotes in SSID for shell safety
+    const escapedSsid = ssid.replace(/"/g, '\\"')
+
+    // First, try the direct security command. This will work if:
+    // 1. The app has been previously granted keychain access, or
+    // 2. macOS shows a keychain access dialog that the user approves
+    // The -w flag outputs just the password to stdout
     try {
-      // Use the security command to retrieve WiFi password from System keychain
-      // WiFi passwords are stored with kind "AirPort network password"
-      // The -a flag specifies the account name (SSID), -w outputs just the password
-      // This will prompt the user for permission (Touch ID or password) on first access
       const { stdout } = await execAsync(
-        `security find-generic-password -D "AirPort network password" -a "${ssid}" -w`,
-        { timeout: 30000 } // Allow time for user authentication
+        `security find-generic-password -D "AirPort network password" -a "${escapedSsid}" -w`,
+        { timeout: 30000 }
       )
-      return stdout.trim() || null
-    } catch {
-      // Try alternate lookup - sometimes the SSID is stored as the "label" (-l) instead of "account" (-a)
-      try {
-        const { stdout: stdout2 } = await execAsync(
-          `security find-generic-password -D "AirPort network password" -l "${ssid}" -w`,
-          { timeout: 30000 }
-        )
-        return stdout2.trim() || null
-      } catch (error) {
-        // Error usually means password not found or user denied access
-        console.error('[WiFi macOS] Get stored password failed:', error)
-        return null
+      const password = stdout.trim()
+      if (password) {
+        console.log('[WiFi macOS] Password retrieved successfully')
+        return password
       }
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.log('[WiFi macOS] Account lookup failed, trying label lookup...', errorMsg)
+    }
+
+    // Try alternate lookup - sometimes the SSID is stored as the "label" (-l) instead of "account" (-a)
+    try {
+      const { stdout: stdout2 } = await execAsync(
+        `security find-generic-password -D "AirPort network password" -l "${escapedSsid}" -w`,
+        { timeout: 30000 }
+      )
+      const password = stdout2.trim()
+      if (password) {
+        console.log('[WiFi macOS] Password retrieved successfully (label lookup)')
+        return password
+      }
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.log('[WiFi macOS] Label lookup also failed:', errorMsg)
+    }
+
+    // If direct access fails, try via osascript with System Events
+    // This runs the command in a context that may have different keychain access
+    console.log('[WiFi macOS] Trying via System Events AppleScript...')
+    try {
+      const script = `
+tell application "System Events"
+    set keychainPassword to do shell script "security find-generic-password -D 'AirPort network password' -a '${escapedSsid.replace(/'/g, "'\\''")}' -w 2>/dev/null || security find-generic-password -D 'AirPort network password' -l '${escapedSsid.replace(/'/g, "'\\''")}' -w 2>/dev/null || echo ''"
+    return keychainPassword
+end tell`
+      const { stdout: stdout3 } = await execAsync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, {
+        timeout: 30000
+      })
+      const password = stdout3.trim()
+      if (password) {
+        console.log('[WiFi macOS] Password retrieved via System Events')
+        return password
+      }
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.error('[WiFi macOS] System Events approach failed:', errorMsg)
+    }
+
+    console.error('[WiFi macOS] All password retrieval methods failed')
+    return null
+  }
+
+  /**
+   * Get list of known WiFi network SSIDs from the System keychain.
+   * This doesn't require location permissions - just lists the SSIDs that have
+   * stored passwords (no passwords are returned, just the network names).
+   */
+  async getKnownNetworks(): Promise<string[]> {
+    try {
+      // Dump the System keychain and extract SSIDs for AirPort network passwords
+      // This works without any special permissions - we're just reading the account names
+      const { stdout } = await execAsync(
+        `security dump-keychain /Library/Keychains/System.keychain 2>/dev/null | grep -B5 'AirPort network password' | grep '"acct"' | sed 's/.*<blob>="\\([^"]*\\)".*/\\1/' | sort -u`,
+        { timeout: 10000 }
+      )
+      const ssids = stdout.trim().split('\n').filter(s => s.length > 0)
+      console.log(`[WiFi macOS] Found ${ssids.length} known networks in keychain`)
+      return ssids
+    } catch (error) {
+      console.error('[WiFi macOS] Failed to get known networks:', error)
+      return []
     }
   }
 

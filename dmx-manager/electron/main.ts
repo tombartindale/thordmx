@@ -244,6 +244,36 @@ ipcMain.handle("wifi:get-current-credentials", async () => {
   }
 });
 
+ipcMain.handle("wifi:get-known-networks", async () => {
+  console.log("[WiFi] get-known-networks called");
+  try {
+    if (!wifiService) {
+      return { success: false, error: "WiFi service not initialized" };
+    }
+    const networks = await wifiService.getKnownNetworks();
+    console.log(`[WiFi] Found ${networks.length} known networks`);
+    return { success: true, networks };
+  } catch (error) {
+    console.error("[WiFi] Get known networks failed:", error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle("wifi:get-password-for-network", async (_event, ssid: string) => {
+  console.log(`[WiFi] get-password-for-network called for: ${ssid}`);
+  try {
+    if (!wifiService) {
+      return { success: false, error: "WiFi service not initialized" };
+    }
+    const password = await wifiService.getPasswordForNetwork(ssid);
+    console.log(`[WiFi] Password retrieved: ${password ? 'yes' : 'no'}`);
+    return { success: true, password };
+  } catch (error) {
+    console.error("[WiFi] Get password for network failed:", error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
 ipcMain.handle("wifi:connect-device-ap", async (_event, ssid: string) => {
   try {
     if (!wifiService) {

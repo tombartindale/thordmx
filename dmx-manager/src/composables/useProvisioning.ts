@@ -61,6 +61,10 @@ export function useProvisioning() {
     sacnUniverse: 1,
   });
 
+  // Known networks from keychain (macOS)
+  const knownNetworks = ref<string[]>([]);
+  const isLoadingPassword = ref(false);
+
   const progress = computed(() => {
     if (selectedAPs.value.length === 0) return 0;
     return Math.round(
@@ -121,13 +125,59 @@ export function useProvisioning() {
         );
         return true;
       }
+
+      // If auto-detection failed, load known networks for manual selection
+      console.log("[Provisioning] Auto-detection failed, loading known networks...");
+      await loadKnownNetworks();
       return false;
     } catch (e) {
       console.warn(
         "[Provisioning] Could not load current WiFi credentials:",
         e,
       );
+      // Try to load known networks as fallback
+      await loadKnownNetworks();
       return false;
+    }
+  }
+
+  async function loadKnownNetworks(): Promise<string[]> {
+    try {
+      console.log("[Provisioning] Loading known networks from keychain...");
+      const result = await (window as any).electronAPI.wifi.getKnownNetworks();
+      console.log("[Provisioning] Known networks result:", result);
+      if (result.success && result.networks) {
+        knownNetworks.value = result.networks;
+        return result.networks;
+      }
+      return [];
+    } catch (e) {
+      console.warn("[Provisioning] Could not load known networks:", e);
+      return [];
+    }
+  }
+
+  async function selectKnownNetwork(ssid: string): Promise<boolean> {
+    if (!ssid) return false;
+
+    config.targetSsid = ssid;
+    config.targetPassword = "";
+    isLoadingPassword.value = true;
+
+    try {
+      console.log(`[Provisioning] Getting password for network: ${ssid}`);
+      const result = await (window as any).electronAPI.wifi.getPasswordForNetwork(ssid);
+      console.log("[Provisioning] Password result:", result);
+      if (result.success && result.password) {
+        config.targetPassword = result.password;
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn(`[Provisioning] Could not get password for ${ssid}:`, e);
+      return false;
+    } finally {
+      isLoadingPassword.value = false;
     }
   }
 
@@ -381,6 +431,8 @@ export function useProvisioning() {
     error,
     config,
     hasElectronAPI,
+    knownNetworks,
+    isLoadingPassword,
 
     // Computed
     progress,
@@ -396,5 +448,7 @@ export function useProvisioning() {
     startProvisioning,
     cancelProvisioning,
     reset,
+    loadKnownNetworks,
+    selectKnownNetwork,
   };
 }

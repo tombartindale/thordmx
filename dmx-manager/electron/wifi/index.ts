@@ -15,6 +15,7 @@ export interface WifiService {
   scan(): Promise<WifiNetwork[]>
   getCurrentNetwork(): Promise<string | null>
   getStoredPassword(ssid: string): Promise<string | null>
+  getKnownNetworks?(): Promise<string[]>
   connect(ssid: string, password?: string): Promise<boolean>
   disconnect(): Promise<boolean>
   checkLocationAuthorization?(): Promise<number>
@@ -83,13 +84,38 @@ export class WifiProvisioningService extends EventEmitter {
 
     const ssid = await this.wifiService.getCurrentNetwork()
     console.log(`[WiFi] Current network SSID: ${ssid}`)
-    if (!ssid) return null
+    if (!ssid) {
+      console.log('[WiFi] Could not detect current network (location permission likely denied)')
+      return null
+    }
 
     const password = await this.wifiService.getStoredPassword(ssid)
     console.log(`[WiFi] Password retrieved: ${password ? 'yes' : 'no'}`)
 
     // Return SSID even if password couldn't be retrieved
     return { ssid, password }
+  }
+
+  /**
+   * Get list of known WiFi networks that have stored passwords.
+   * This works on macOS even without location permissions.
+   */
+  async getKnownNetworks(): Promise<string[]> {
+    if (!this.wifiService) throw new Error('WiFi service not initialized')
+
+    if (this.wifiService.getKnownNetworks) {
+      return this.wifiService.getKnownNetworks()
+    }
+    return []
+  }
+
+  /**
+   * Get stored password for a specific network.
+   * On macOS, this will trigger an admin password dialog.
+   */
+  async getPasswordForNetwork(ssid: string): Promise<string | null> {
+    if (!this.wifiService) throw new Error('WiFi service not initialized')
+    return this.wifiService.getStoredPassword(ssid)
   }
 
   async scanNetworks(pattern?: string): Promise<WifiNetwork[]> {
