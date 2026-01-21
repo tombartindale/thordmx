@@ -4,21 +4,46 @@
  */
 
 #define MAX_CONNECT_RETRIES 2  // Number of connection attempts before giving up
+#define AP_RETRY_DELAY_MS 60000  // 60 seconds in AP mode before retrying connection
 
 void wifiTask(void *parameter)
 {
   bool ap_mode = false;
   bool ap_mode_permanent = false;  // Once true, stay in AP mode until reboot
+  bool has_connected_since_boot = false;  // Track if we ever connected successfully
   unsigned long connect_start = 0;
+  unsigned long ap_mode_start = 0;  // When we entered AP mode (for retry timer)
   int connect_retries = 0;
 
   while (true)
   {
-    // If in permanent AP mode, nothing to do - just wait
+    // If in permanent AP mode (never connected), nothing to do - just wait
     if (ap_mode_permanent)
     {
       vTaskDelay(pdMS_TO_TICKS(500));
       continue;
+    }
+
+    // If in temporary AP mode (lost connection after successful connect), check if it's time to retry
+    if (ap_mode && has_connected_since_boot && ap_mode_start > 0)
+    {
+      if (millis() - ap_mode_start >= AP_RETRY_DELAY_MS)
+      {
+        Serial.println("[WiFi] AP retry timer expired, attempting to reconnect...");
+        WiFi.softAPdisconnect(true);
+        delay(100);
+        WiFi.mode(WIFI_OFF);
+        delay(100);
+        ap_mode = false;
+        state.ap_mode_active = false;
+        connect_retries = 0;
+        ap_mode_start = 0;
+      }
+      else
+      {
+        vTaskDelay(pdMS_TO_TICKS(500));
+        continue;
+      }
     }
 
     // Check if we have WiFi credentials
@@ -57,6 +82,7 @@ void wifiTask(void *parameter)
         if (WiFi.status() == WL_CONNECTED)
         {
           state.wifi_connected = true;
+          has_connected_since_boot = true;  // Mark that we've successfully connected
           connect_retries = 0;  // Reset retry counter on success
           Serial.println("[WiFi] Connected!");
           Serial.printf("  IP: %s\n", WiFi.localIP().toString().c_str());
@@ -88,14 +114,26 @@ void wifiTask(void *parameter)
           // Check if we've exhausted retries
           if (connect_retries >= MAX_CONNECT_RETRIES)
           {
-            Serial.printf("[WiFi] Max retries (%d) reached, entering AP mode permanently\n", MAX_CONNECT_RETRIES);
-            Serial.println("[WiFi] Update credentials via web interface or reboot to retry");
-
             startAPMode();
             ap_mode = true;
-            ap_mode_permanent = true;
             state.ap_mode_active = true;
             led_state = LED_AP_MODE;
+
+            if (has_connected_since_boot)
+            {
+              // Previously connected but lost connection - temporary AP mode with retry
+              Serial.printf("[WiFi] Max retries (%d) reached, entering AP mode for %d seconds\n",
+                            MAX_CONNECT_RETRIES, AP_RETRY_DELAY_MS / 1000);
+              ap_mode_start = millis();
+              ap_mode_permanent = false;
+            }
+            else
+            {
+              // Never connected since boot - permanent AP mode
+              Serial.printf("[WiFi] Max retries (%d) reached, entering AP mode permanently\n", MAX_CONNECT_RETRIES);
+              Serial.println("[WiFi] Update credentials via web interface or reboot to retry");
+              ap_mode_permanent = true;
+            }
           }
           else
           {
@@ -114,6 +152,7 @@ void wifiTask(void *parameter)
           led_state = LED_ERROR;
           connect_start = 0;
           connect_retries = 0;  // Reset retries for reconnection attempts
+          ap_mode_start = 0;
           MDNS.end();
           server.stop();
         }
