@@ -84,6 +84,9 @@ void wifiTask(void *parameter)
           state.wifi_connected = true;
           has_connected_since_boot = true;  // Mark that we've successfully connected
           connect_retries = 0;  // Reset retry counter on success
+          // Disable WiFi power save — critical for low-latency multicast (sACN)
+          esp_wifi_set_ps(WIFI_PS_NONE);
+
           Serial.println("[WiFi] Connected!");
           Serial.printf("  IP: %s\n", WiFi.localIP().toString().c_str());
           Serial.printf("  RSSI: %d dBm\n", WiFi.RSSI());

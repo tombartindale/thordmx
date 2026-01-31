@@ -14,6 +14,7 @@
 #define DMX_BREAK_US 100      // Break time in microseconds (min 92us)
 #define DMX_MAB_US 12         // Mark After Break in microseconds (min 12us)
 #define DMX_BAUD_RATE 250000  // DMX baud rate
+#define DMX_BREAK_BAUD 90000  // Baud rate for BREAK generation (0x00 at 8N2 = 100µs low + 22µs high)
 
 class DMXDriver {
 public:
@@ -24,6 +25,7 @@ public:
 private:
   int _tx_pin;
   bool _initialized;
+  uint8_t _frame[513];  // Start code + 512 channels, avoids per-frame stack allocation
 };
 
 #endif // DMX_DRIVER_H

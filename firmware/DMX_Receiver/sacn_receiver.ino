@@ -52,12 +52,8 @@ void onDMXFrame()
   // Update DMX buffer (thread-safe)
   if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(10)) == pdTRUE)
   {
-    // Copy DMX channel data using dmx() accessor
-    // DMX channels are 1-indexed in the library (1-512)
-    for (int i = 0; i < DMX_PACKET_SIZE; i++)
-    {
-      dmx_data[i] = sacn.dmx(i + 1);
-    }
+    // Bulk copy all 512 channels from library's internal buffer
+    sacn.dmx(dmx_data);
     xSemaphoreGive(dmx_mutex);
   }
 

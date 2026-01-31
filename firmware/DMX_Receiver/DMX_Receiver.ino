@@ -21,6 +21,7 @@
 #include <Update.h>
 #include <esp_ota_ops.h>
 #include <esp_system.h>
+#include <esp_wifi.h>
 #include "dmx_driver.h"
 
 // Version
