@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ThorDMX Bridge — Wireless sACN to DMX512</title>
+  <meta name="description" content="Build your own wireless sACN to DMX512 bridge. Open-source hardware and firmware for lighting professionals.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">Thor<span>DMX</span></a>
+    <ul class="nav-links">
+      <li><a href="#how">How It Works</a></li>
+      <li><a href="#parts">Parts</a></li>
+      <li><a href="#build">Build</a></li>
+      <li><a href="#firmware">Firmware</a></li>
+      <li><a href="#setup">Setup</a></li>
+      <li><a href="#manager">Manager</a></li>
+      <li><a href="#troubleshooting">Help</a></li>
+    </ul>
+    <button class="nav-toggle" aria-label="Menu">&#9776;</button>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="top">
+  <div class="container">
+    <h1>Wireless <span>DMX</span>,<br>no compromises.</h1>
+    <p class="hero-sub">ThorDMX Bridge converts sACN lighting data over WiFi to standard DMX512 output. Open-source, easy to build, ready for the stage.</p>
+    <a href="#parts" class="hero-cta">Get Started &darr;</a>
+
+    <div class="manager-callout">
+      <div class="manager-callout-text">
+        <div class="callout callout-info" style="margin: 0;">
+          <strong>Already built your devices?</strong> Download the <a href="#manager">ThorDMX Manager</a> app to discover, configure, and monitor your entire fleet from one place&mdash;no command line required.
+        </div>
+      </div>
+      <!-- TODO: Replace placeholder with: <img src="images/manager-hero.png" alt="ThorDMX Manager app" class="manager-callout-img"> -->
+      <div class="manager-callout-img img-placeholder">
+        <span class="label">Screenshot: ThorDMX Manager app</span>
+        Add image to docs/images/manager-hero.png
+      </div>
+    </div>
+
+    <!-- TODO: Replace with product hero image -->
+    <div class="img-placeholder" style="margin-top: 24px;">
+      <span class="label">Photo: assembled ThorDMX Bridge device</span>
+      Add image to docs/images/hero.jpg
+    </div>
+  </div>
+</section>
+
+<!-- ===== HOW IT WORKS ===== -->
+<section id="how">
+  <div class="container">
+    <span class="section-label">Overview</span>
+    <h2>How It Works</h2>
+    <p style="color: var(--text-muted); margin-bottom: 8px;">Three simple steps from your lighting console to your fixtures&mdash;wirelessly.</p>
+
+    <div class="how-grid">
+      <div class="how-card">
+        <span class="how-icon">&#128225;</span>
+        <h3>1. Send</h3>
+        <p>Your lighting console sends sACN (E1.31) data over your WiFi network&mdash;just like it already does.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-icon">&#128752;</span>
+        <h3>2. Bridge</h3>
+        <p>The ThorDMX Bridge picks up the wireless signal and converts it in real time.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-icon">&#127903;</span>
+        <h3>3. Output</h3>
+        <p>Standard DMX512 comes out the XLR connector, ready for your fixtures. 40 frames per second, rock solid.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PARTS LIST ===== -->
+<section id="parts" style="background: var(--bg-card);">
+  <div class="container">
+    <span class="section-label">Shopping List</span>
+    <h2>What You Need</h2>
+    <p style="color: var(--text-muted);">All components are widely available and inexpensive. Total cost is roughly $10&ndash;$20 per unit.</p>
+
+    <div class="parts-grid">
+      <div class="part-card">
+        <h3>ESP32-C6 Dev Board</h3>
+        <p>The brain. WiFi-enabled microcontroller.</p>
+        <span class="part-note">Any ESP32-C6 board with USB-C</span>
+      </div>
+      <div class="part-card">
+        <h3>MAX485 Module</h3>
+        <p>Converts the signal to RS-485 for DMX output.</p>
+        <span class="part-note">Pre-built breakout modules work great</span>
+      </div>
+      <div class="part-card">
+        <h3>5-Pin XLR Connector</h3>
+        <p>Female panel-mount for DMX output.</p>
+        <span class="part-note">3-pin also works</span>
+      </div>
+      <div class="part-card">
+        <h3>WS2812 RGB LED</h3>
+        <p>Status indicator&mdash;shows connection state at a glance.</p>
+        <span class="part-note">Optional but recommended</span>
+      </div>
+      <div class="part-card">
+        <h3>Enclosure</h3>
+        <p>Any small project box. Metal preferred for shielding.</p>
+        <span class="part-note">3D-printed works too</span>
+      </div>
+      <div class="part-card">
+        <h3>Wire &amp; Solder</h3>
+        <p>Standard hookup wire. Basic soldering required.</p>
+        <span class="part-note">~30 minutes assembly time</span>
+      </div>
+    </div>
+
+    <div class="callout callout-info" style="margin-top: 32px;">
+      <strong>Custom PCB available</strong>&mdash;If you prefer a cleaner build, download the Gerber files below and order PCBs from any manufacturer (JLCPCB, PCBWay, etc.).
+    </div>
+
+    <div class="btn-group">
+      <!-- TODO: Update href to actual gerber file path -->
+      <a href="#" class="btn btn-outline">Download Gerber Files</a>
+      <!-- TODO: Update href to actual schematic file path -->
+      <a href="#" class="btn btn-outline">Download Schematic</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== BUILD IT ===== -->
+<section id="build">
+  <div class="container">
+    <span class="section-label">Assembly</span>
+    <h2>Build It</h2>
+    <p style="color: var(--text-muted); margin-bottom: 8px;">Basic soldering skills required. No programming knowledge needed for this step.</p>
+
+    <!-- TODO: Replace with schematic image -->
+    <div class="img-placeholder">
+      <span class="label">Image: circuit schematic</span>
+      Add image to docs/images/schematic.png
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <h3>Set Up the MAX485 Module</h3>
+        <p>Configure the module for transmit-only mode:</p>
+        <ul>
+          <li>Connect <strong>DE</strong> (Driver Enable) to <strong>VCC</strong> (always on)</li>
+          <li>Connect <strong>RE</strong> (Receiver Enable) to <strong>GND</strong> (disabled)</li>
+        </ul>
+        <p style="margin-top: 8px;">Some modules have jumpers for this&mdash;check yours.</p>
+      </div>
+
+      <div class="step">
+        <h3>Wire ESP32-C6 to MAX485</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ESP32-C6</th><th>MAX485</th></tr></thead>
+            <tbody>
+              <tr><td>GPIO 0</td><td>DI (Data In)</td></tr>
+              <tr><td>5V</td><td>VCC</td></tr>
+              <tr><td>GND</td><td>GND</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="step">
+        <h3>Wire MAX485 to XLR Connector</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>MAX485</th><th>XLR Pin</th><th>Signal</th></tr></thead>
+            <tbody>
+              <tr><td>A</td><td>Pin 3</td><td>Data+</td></tr>
+              <tr><td>B</td><td>Pin 2</td><td>Data&minus;</td></tr>
+              <tr><td>GND</td><td>Pin 1</td><td>Ground</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="step">
+        <h3>Add the Status LED (Optional)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ESP32-C6</th><th>WS2812</th></tr></thead>
+            <tbody>
+              <tr><td>GPIO 8</td><td>Data In</td></tr>
+              <tr><td>5V</td><td>VCC</td></tr>
+              <tr><td>GND</td><td>GND</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="step">
+        <h3>Test Your Connections</h3>
+        <p>Before powering on, double-check with a multimeter:</p>
+        <ul>
+          <li>No shorts between power and ground</li>
+          <li>MAX485 A and B are not shorted together</li>
+          <li>5V reads ~5V between VCC and GND</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="wiring-ascii">
+      <h3 style="margin-bottom: 12px; color: var(--text);">Wiring Reference</h3>
+      <pre><code>ESP32-C6              MAX485              XLR (Female)
+────────              ──────              ────────────
+GPIO 0  ───────────> DI
+5V      ───────────> VCC
+         ───────────> DE
+GND     ───────────> GND
+         ───────────> RE
+                      A   ─────────────> Pin 3 (Data+)
+                      B   ─────────────> Pin 2 (Data-)
+                      GND ─────────────> Pin 1 (Ground)
+
+ESP32-C6              WS2812
+────────              ──────
+GPIO 8  ───────────> Data In
+5V      ───────────> VCC
+GND     ───────────> GND</code></pre>
+    </div>
+
+    <!-- TODO: Replace with build photo -->
+    <div class="img-placeholder">
+      <span class="label">Photo: completed wiring</span>
+      Add image to docs/images/wiring-photo.jpg
+    </div>
+  </div>
+</section>
+
+<!-- ===== FIRMWARE ===== -->
+<section id="firmware" style="background: var(--bg-card);">
+  <div class="container">
+    <span class="section-label">Programming</span>
+    <h2>Flash the Firmware</h2>
+    <p style="color: var(--text-muted); margin-bottom: 8px;">One-time setup. After this, future updates happen wirelessly.</p>
+
+    <div class="steps">
+      <div class="step">
+        <h3>Install Arduino IDE</h3>
+        <p>Download and install <a href="https://www.arduino.cc/en/software" target="_blank" rel="noopener">Arduino IDE 2.x</a> (free). Works on Mac, Windows, and Linux.</p>
+      </div>
+
+      <div class="step">
+        <h3>Add ESP32 Board Support</h3>
+        <p>In Arduino IDE:</p>
+        <ul>
+          <li>Go to <strong>File &rarr; Preferences</strong></li>
+          <li>In "Additional Board Manager URLs" paste:<br>
+            <code>https://espressif.github.io/arduino-esp32/package_esp32_index.json</code>
+          </li>
+          <li>Go to <strong>Tools &rarr; Board Manager</strong></li>
+          <li>Search for <strong>"esp32"</strong> and install <strong>"esp32 by Espressif Systems"</strong></li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <h3>Install Required Libraries</h3>
+        <ul>
+          <li><strong>ArduinoJson</strong>&mdash;Tools &rarr; Manage Libraries &rarr; search "ArduinoJson"</li>
+          <li><strong>FastLED</strong>&mdash;Tools &rarr; Manage Libraries &rarr; search "FastLED"</li>
+          <li><strong>sACN</strong>&mdash;Download from <a href="https://github.com/sstaub/sACN" target="_blank" rel="noopener">GitHub</a>, then Sketch &rarr; Include Library &rarr; Add .ZIP Library</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <h3>Configure Board Settings</h3>
+        <p>Under <strong>Tools</strong>, set:</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>Board</td><td>ESP32C6 Dev Module</td></tr>
+              <tr><td>Partition Scheme</td><td>Minimal SPIFFS</td></tr>
+              <tr><td>USB CDC On Boot</td><td>Enabled</td></tr>
+              <tr><td>Upload Speed</td><td>921600</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="step">
+        <h3>Upload</h3>
+        <p>Connect your ESP32-C6 via USB-C, select the correct port under <strong>Tools &rarr; Port</strong>, and click the <strong>Upload</strong> button (right arrow icon).</p>
+        <p>Wait for "Done uploading". The status LED should begin pulsing blue&mdash;that means it&rsquo;s ready for setup.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>Tip:</strong> After the initial flash, you can update firmware wirelessly using the Manager app&mdash;no need to plug in USB again.
+    </div>
+
+    <!-- TODO: Replace with screenshot -->
+    <div class="img-placeholder">
+      <span class="label">Screenshot: Arduino IDE with board settings</span>
+      Add image to docs/images/arduino-settings.png
+    </div>
+  </div>
+</section>
+
+<!-- ===== FIRST SETUP ===== -->
+<section id="setup">
+  <div class="container">
+    <span class="section-label">Configuration</span>
+    <h2>First-Time Setup</h2>
+    <p style="color: var(--text-muted); margin-bottom: 8px;">Once the firmware is loaded, configure your device in under a minute.</p>
+
+    <div class="steps">
+      <div class="step">
+        <h3>Power On the Device</h3>
+        <p>Connect power via USB-C. The status LED will pulse <strong style="color: #2196f3;">blue</strong>&mdash;this means it&rsquo;s in setup mode and broadcasting its own WiFi network.</p>
+      </div>
+
+      <div class="step">
+        <h3>Connect to the Device</h3>
+        <p>On your phone or laptop, look for a WiFi network called <strong>DMX-Bridge-XXXX</strong> (the last 4 characters are unique to your device). Connect to it.</p>
+      </div>
+
+      <div class="step">
+        <h3>Open the Setup Page</h3>
+        <p>A configuration page should open automatically. If it doesn&rsquo;t, open a browser and go to <code>192.168.4.1</code></p>
+      </div>
+
+      <div class="step">
+        <h3>Enter Your Settings</h3>
+        <ul>
+          <li><strong>WiFi Network</strong>&mdash;The name of your lighting network</li>
+          <li><strong>WiFi Password</strong>&mdash;The network password</li>
+          <li><strong>sACN Universe</strong>&mdash;Which DMX universe this device should output (1&ndash;63999)</li>
+        </ul>
+        <p style="margin-top: 8px;">Hit <strong>Save</strong>. The device will reboot and connect to your network. The LED turns <strong style="color: #4caf50;">green</strong> when connected.</p>
+      </div>
+    </div>
+
+    <!-- TODO: Replace with captive portal screenshot -->
+    <div class="img-placeholder">
+      <span class="label">Screenshot: captive portal configuration page</span>
+      Add image to docs/images/captive-portal.png
+    </div>
+
+    <h3 style="margin-top: 48px; margin-bottom: 16px;">LED Status Reference</h3>
+    <div class="led-grid">
+      <div class="led-item">
+        <div class="led-dot blue"></div>
+        <div class="led-label"><strong>Pulsing Blue</strong><span>Setup mode (AP active)</span></div>
+      </div>
+      <div class="led-item">
+        <div class="led-dot cyan"></div>
+        <div class="led-label"><strong>Pulsing Cyan</strong><span>Connecting to WiFi</span></div>
+      </div>
+      <div class="led-item">
+        <div class="led-dot green"></div>
+        <div class="led-label"><strong>Solid Green</strong><span>Connected, receiving sACN</span></div>
+      </div>
+      <div class="led-item">
+        <div class="led-dot yellow"></div>
+        <div class="led-label"><strong>Yellow</strong><span>Connected, no sACN data</span></div>
+      </div>
+      <div class="led-item">
+        <div class="led-dot red"></div>
+        <div class="led-label"><strong>Red</strong><span>Error / WiFi lost</span></div>
+      </div>
+      <div class="led-item">
+        <div class="led-dot white"></div>
+        <div class="led-label"><strong>Flashing White</strong><span>Identify mode</span></div>
+      </div>
+      <div class="led-item">
+        <div class="led-dot purple"></div>
+        <div class="led-label"><strong>Purple</strong><span>Firmware updating</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MANAGER APP ===== -->
+<section id="manager" style="background: var(--bg-card);">
+  <div class="container">
+    <span class="section-label">Fleet Management</span>
+    <h2>ThorDMX Manager App</h2>
+    <p style="color: var(--text-muted); margin-bottom: 8px;">Manage all your devices from one place. Discover, configure, monitor, and update&mdash;across your entire fleet.</p>
+
+    <!-- TODO: Replace with app screenshot -->
+    <div class="img-placeholder">
+      <span class="label">Screenshot: ThorDMX Manager app</span>
+      Add image to docs/images/manager-app.png
+    </div>
+
+    <h3 style="margin-top: 32px;">What It Does</h3>
+    <div class="how-grid" style="margin-top: 16px;">
+      <div class="how-card">
+        <h3>Discover</h3>
+        <p>Automatically finds all ThorDMX devices on your network. No IP addresses to remember.</p>
+      </div>
+      <div class="how-card">
+        <h3>Configure</h3>
+        <p>Rename devices, assign universes, and set up WiFi credentials&mdash;individually or in bulk.</p>
+      </div>
+      <div class="how-card">
+        <h3>Monitor</h3>
+        <p>See real-time status, signal strength, and sACN reception for every device at a glance.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 36px;">Download</h3>
+    <div class="btn-group">
+      <!-- TODO: Update with actual download URLs -->
+      <a href="#" class="btn btn-primary">macOS</a>
+      <a href="#" class="btn btn-outline">Windows</a>
+      <a href="#" class="btn btn-outline">Linux</a>
+    </div>
+
+    <h3 style="margin-top: 36px;">Bulk Provisioning</h3>
+    <p style="color: var(--text-muted);">Got a rack of new devices? The Manager app can configure them all at once:</p>
+    <div class="steps" style="margin-top: 16px;">
+      <div class="step">
+        <h3>Power on all devices</h3>
+        <p>Each one broadcasts its own WiFi network (DMX-Bridge-XXXX).</p>
+      </div>
+      <div class="step">
+        <h3>Open the Provision tab</h3>
+        <p>The app scans for unconfigured devices automatically.</p>
+      </div>
+      <div class="step">
+        <h3>Enter your network details and naming template</h3>
+        <p>For example: WiFi "ShowNet", names "Stage-1, Stage-2, Stage-3...", universes starting at 1.</p>
+      </div>
+      <div class="step">
+        <h3>Click Provision</h3>
+        <p>The app connects to each device in turn, sends the config, and verifies it appears on the network.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 36px;">Wireless Firmware Updates</h3>
+    <p style="color: var(--text-muted);">Update any device over WiFi&mdash;no USB cable needed. The Manager app handles the upload, verification, and can even roll back if something goes wrong.</p>
+  </div>
+</section>
+
+<!-- ===== TROUBLESHOOTING ===== -->
+<section id="troubleshooting">
+  <div class="container">
+    <span class="section-label">Help</span>
+    <h2>Troubleshooting</h2>
+
+    <h3 style="margin-top: 24px; margin-bottom: 16px;">Common Issues</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Problem</th><th>Likely Cause</th><th>Solution</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>No DMX output</td>
+            <td>MAX485 DE/RE not wired correctly</td>
+            <td>Tie DE to VCC, RE to GND</td>
+          </tr>
+          <tr>
+            <td>LED stays red</td>
+            <td>Can&rsquo;t connect to WiFi</td>
+            <td>Check SSID and password. Move closer to the router.</td>
+          </tr>
+          <tr>
+            <td>LED is green but fixtures don&rsquo;t respond</td>
+            <td>Wrong universe or swapped Data+/Data&minus;</td>
+            <td>Verify universe number matches your console. Swap XLR pins 2 &amp; 3.</td>
+          </tr>
+          <tr>
+            <td>Intermittent DMX</td>
+            <td>Loose connections or WiFi interference</td>
+            <td>Re-solder joints. Use 5GHz network if possible. Add 120&ohm; terminator.</td>
+          </tr>
+          <tr>
+            <td>ESP32 won&rsquo;t boot after wiring</td>
+            <td>GPIO 0 pulled low at startup</td>
+            <td>Add a 10k&ohm; pull-up resistor to 3.3V on GPIO 0</td>
+          </tr>
+          <tr>
+            <td>Status LED doesn&rsquo;t light up</td>
+            <td>WS2812 needs 5V</td>
+            <td>Check LED is wired to 5V, not 3.3V</td>
+          </tr>
+          <tr>
+            <td>Can&rsquo;t find device WiFi network</td>
+            <td>Device already configured</td>
+            <td>Factory reset: hold GPIO 9/BOOT button for 10 seconds</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top: 40px;">FAQ</h3>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-q">How far can the device be from the WiFi router?</button>
+        <div class="faq-a"><div class="faq-a-inner">Like any WiFi device, range depends on your environment. In open spaces, 30&ndash;50 meters is typical. Walls and metal structures reduce range. For large venues, use WiFi access points positioned near your devices.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Can I use multiple devices on the same universe?</button>
+        <div class="faq-a"><div class="faq-a-inner">Yes. Multiple ThorDMX Bridges can receive the same sACN universe simultaneously. This is useful for splitting one universe to multiple DMX runs in different locations.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">What lighting consoles are compatible?</button>
+        <div class="faq-a"><div class="faq-a-inner">Any console or software that outputs sACN (E1.31) over a network. This includes ETC Eos, ChamSys MagicQ, GrandMA, Hog, QLC+, and many others. If your console can send sACN to a network, it works with ThorDMX.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Is there any latency?</button>
+        <div class="faq-a"><div class="faq-a-inner">Latency is under 5 milliseconds in typical conditions&mdash;imperceptible for lighting. The device outputs DMX at a solid 40 frames per second.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Can I use a 3-pin XLR instead of 5-pin?</button>
+        <div class="faq-a"><div class="faq-a-inner">Absolutely. 3-pin XLR uses the same pins (1=Ground, 2=Data&minus;, 3=Data+). The 4th and 5th pins on 5-pin connectors are unused by DMX512.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Do I need a DMX terminator?</button>
+        <div class="faq-a"><div class="faq-a-inner">For short cable runs or a single fixture, no. For long runs or chains of many fixtures, add a 120&ohm; resistor between pins 2 and 3 on the last fixture in the chain.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">How do I factory reset a device?</button>
+        <div class="faq-a"><div class="faq-a-inner">Hold the BOOT button on the ESP32-C6 for 10 seconds. The LED will flash red, and the device will restart in setup mode (AP mode) with default settings.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <ul class="footer-links">
+    <li><a href="https://github.com/tombartindale/DMX_Receiver" target="_blank" rel="noopener">GitHub</a></li>
+    <li><a href="#top">Back to Top</a></li>
+  </ul>
+  <p>ThorDMX Bridge &mdash; Open-source wireless DMX. Built for the stage.</p>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>
