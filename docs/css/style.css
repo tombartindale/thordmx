@@ -312,6 +312,24 @@ img.manager-callout-img {
   color: var(--accent);
 }
 
+/* ===== PCB IMAGES ===== */
+.pcb-images {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.pcb-images img {
+  width: 100%;
+  border: 1px solid var(--border);
+}
+
+@media (max-width: 480px) {
+  .pcb-images {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ===== IMAGE PLACEHOLDER ===== */
 .img-placeholder {
   background: var(--bg-card);
