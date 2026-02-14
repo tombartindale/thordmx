@@ -27,3 +27,5 @@ dist-electron
 dist
 release
 out
+bin
+obj
