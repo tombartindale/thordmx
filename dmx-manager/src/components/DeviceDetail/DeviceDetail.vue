@@ -29,6 +29,7 @@ const status = computed(() => devicesStore.deviceStatuses.get(props.device.id) |
 const configForm = ref({
   device_name: '',
   sacn_universe: 1,
+  dmx_start_channel: 1,
   wifi_ssid: '',
   wifi_password: ''
 })
@@ -53,6 +54,7 @@ async function fetchConfig() {
     configForm.value = {
       device_name: config.value.device_name,
       sacn_universe: config.value.sacn_universe,
+      dmx_start_channel: config.value.dmx_start_channel,
       wifi_ssid: config.value.wifi_ssid,
       wifi_password: ''
     }
@@ -71,6 +73,9 @@ async function saveConfig() {
     }
     if (configForm.value.sacn_universe !== config.value?.sacn_universe) {
       updates.sacn_universe = configForm.value.sacn_universe
+    }
+    if (configForm.value.dmx_start_channel !== config.value?.dmx_start_channel) {
+      updates.dmx_start_channel = configForm.value.dmx_start_channel
     }
     if (configForm.value.wifi_ssid && configForm.value.wifi_ssid !== config.value?.wifi_ssid) {
       updates.wifi_ssid = configForm.value.wifi_ssid
@@ -222,6 +227,10 @@ onMounted(() => {
               <dd class="text-gray-100">{{ status.sacn_universe }}</dd>
             </div>
             <div class="flex justify-between">
+              <dt class="text-gray-400">Start Channel</dt>
+              <dd class="text-gray-100">{{ status.dmx_start_channel }}</dd>
+            </div>
+            <div class="flex justify-between">
               <dt class="text-gray-400">Source</dt>
               <dd class="text-gray-100">{{ status.sacn_source_name || 'N/A' }}</dd>
             </div>
@@ -286,6 +295,17 @@ onMounted(() => {
             type="number"
             min="1"
             max="63999"
+            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-400 mb-1">DMX Start Channel</label>
+          <input
+            v-model.number="configForm.dmx_start_channel"
+            type="number"
+            min="1"
+            max="512"
             class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>

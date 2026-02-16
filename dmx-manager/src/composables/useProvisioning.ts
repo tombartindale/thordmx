@@ -18,6 +18,7 @@ export interface ProvisioningConfig {
   deviceNameTemplate: string;
   startingNumber: number;
   sacnUniverse: number;
+  dmxStartChannel: number;
 }
 
 export type ProvisioningStepType =
@@ -59,6 +60,7 @@ export function useProvisioning() {
     deviceNameTemplate: "DMX-Stage-{n}",
     startingNumber: 1,
     sacnUniverse: 1,
+    dmxStartChannel: 1,
   });
 
   // Known networks from keychain (macOS)
@@ -301,6 +303,7 @@ export function useProvisioning() {
       const configResult = await client.setConfig({
         device_name: assignedName,
         sacn_universe: config.sacnUniverse,
+        dmx_start_channel: config.dmxStartChannel,
         wifi_ssid: config.targetSsid,
         wifi_password: config.targetPassword,
       });
