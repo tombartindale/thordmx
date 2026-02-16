@@ -56,6 +56,7 @@ struct Config
   String wifi_password;
   String device_name;
   uint16_t sacn_universe;
+  uint16_t dmx_start_channel;
 } config;
 
 // Runtime state
@@ -161,6 +162,7 @@ void setup()
 
   Serial.printf("Device Name: %s\n", config.device_name.c_str());
   Serial.printf("sACN Universe: %d\n", config.sacn_universe);
+  Serial.printf("DMX Start Channel: %d\n", config.dmx_start_channel);
 
   // Initialize DMX buffer
   memset(dmx_data, 0, DMX_PACKET_SIZE);
@@ -215,6 +217,7 @@ void loadConfig()
   config.wifi_ssid = prefs.getString("wifi_ssid", "");
   config.wifi_password = prefs.getString("wifi_pass", "");
   config.sacn_universe = prefs.getUShort("sacn_universe", 1);
+  config.dmx_start_channel = prefs.getUShort("dmx_start_ch", 1);
 
   // Generate device name from MAC if not set
   String saved_name = prefs.getString("device_name", "");
@@ -238,6 +241,7 @@ void saveConfig()
   prefs.putString("wifi_pass", config.wifi_password);
   prefs.putString("device_name", config.device_name);
   prefs.putUShort("sacn_universe", config.sacn_universe);
+  prefs.putUShort("dmx_start_ch", config.dmx_start_channel);
 }
 
 String getResetReason()

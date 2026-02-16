@@ -18,6 +18,10 @@ void setupAPI()
   // Identify endpoint
   server.on("/api/identify", HTTP_POST, handleAPIIdentify);
 
+  // DMX direct control endpoints
+  server.on("/api/dmx", HTTP_GET, handleAPIGetDMX);
+  server.on("/api/dmx", HTTP_POST, handleAPIPostDMX);
+
   // Firmware endpoints
   server.on("/api/firmware", HTTP_GET, handleAPIGetFirmware);
   server.on("/api/firmware", HTTP_POST, handleAPIPostFirmware, handleFirmwareUpload);
@@ -54,6 +58,7 @@ void handleAPIStatus()
 
   doc["mac_address"] = getMacAddress();
   doc["sacn_universe"] = config.sacn_universe;
+  doc["dmx_start_channel"] = config.dmx_start_channel;
   doc["sacn_packets_received"] = state.sacn_packets_received;
   doc["sacn_packets_errors"] = state.sacn_packets_errors;
 
@@ -83,6 +88,7 @@ void handleAPIGetConfig()
 
   doc["device_name"] = config.device_name;
   doc["sacn_universe"] = config.sacn_universe;
+  doc["dmx_start_channel"] = config.dmx_start_channel;
   doc["wifi_ssid"] = config.wifi_ssid;
 
   String response;
@@ -147,6 +153,18 @@ void handleAPIPostConfig()
     }
     config.sacn_universe = universe;
     reboot_required = true;
+  }
+
+  // Validate and update DMX start channel
+  if (doc.containsKey("dmx_start_channel"))
+  {
+    uint16_t start_ch = doc["dmx_start_channel"];
+    if (start_ch < 1 || start_ch > 512)
+    {
+      sendError(400, "DMX start channel must be 1-512");
+      return;
+    }
+    config.dmx_start_channel = start_ch;
   }
 
   // Validate and update device name
@@ -340,6 +358,126 @@ void handleAPIFirmwareRollback()
 
   esp_ota_set_boot_partition(update);
   ESP.restart();
+}
+
+void handleAPIGetDMX()
+{
+  // Optional query params: start (1-512), count (1-512)
+  uint16_t start = 1;
+  uint16_t count = 512;
+
+  if (server.hasArg("start"))
+  {
+    start = server.arg("start").toInt();
+    if (start < 1 || start > 512)
+      start = 1;
+  }
+
+  if (server.hasArg("count"))
+  {
+    count = server.arg("count").toInt();
+    if (count < 1 || count > 512)
+      count = 512;
+  }
+
+  // Clamp to valid range
+  if (start + count - 1 > 512)
+    count = 513 - start;
+
+  // Read DMX buffer (thread-safe)
+  uint8_t local_buffer[DMX_PACKET_SIZE];
+  if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE)
+  {
+    memcpy(local_buffer, dmx_data, DMX_PACKET_SIZE);
+    xSemaphoreGive(dmx_mutex);
+  }
+
+  // Build response - use DynamicJsonDocument for potentially large array
+  DynamicJsonDocument doc(4096);
+  doc["start"] = start;
+  doc["count"] = count;
+  JsonArray channels = doc.createNestedArray("channels");
+  for (uint16_t i = 0; i < count; i++)
+  {
+    channels.add(local_buffer[start - 1 + i]);
+  }
+
+  String response;
+  serializeJson(doc, response);
+  server.send(200, "application/json", response);
+}
+
+void handleAPIPostDMX()
+{
+  if (!server.hasArg("plain"))
+  {
+    sendError(400, "Missing request body");
+    return;
+  }
+
+  DynamicJsonDocument doc(4096);
+  DeserializationError error = deserializeJson(doc, server.arg("plain"));
+
+  if (error)
+  {
+    sendError(400, "Invalid JSON format");
+    return;
+  }
+
+  uint16_t channels_set = 0;
+
+  if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE)
+  {
+    // Mode 1: Key-value pairs {"channels": {"1": 255, "10": 128}}
+    if (doc.containsKey("channels") && doc["channels"].is<JsonObject>())
+    {
+      JsonObject channels = doc["channels"];
+      for (JsonPair kv : channels)
+      {
+        uint16_t ch = String(kv.key().c_str()).toInt();
+        if (ch >= 1 && ch <= 512)
+        {
+          uint8_t val = kv.value().as<uint8_t>();
+          dmx_data[ch - 1] = val;
+          channels_set++;
+        }
+      }
+    }
+    // Mode 2: Array with start offset {"start": 1, "values": [255, 128, 0]}
+    else if (doc.containsKey("values") && doc["values"].is<JsonArray>())
+    {
+      uint16_t start = doc.containsKey("start") ? doc["start"].as<uint16_t>() : 1;
+      if (start < 1)
+        start = 1;
+      JsonArray values = doc["values"];
+      for (size_t i = 0; i < values.size() && (start - 1 + i) < 512; i++)
+      {
+        dmx_data[start - 1 + i] = values[i].as<uint8_t>();
+        channels_set++;
+      }
+    }
+
+    xSemaphoreGive(dmx_mutex);
+  }
+  else
+  {
+    sendError(500, "Could not acquire DMX buffer lock");
+    return;
+  }
+
+  if (channels_set == 0)
+  {
+    sendError(400, "No valid channels provided. Use {\"channels\":{\"1\":255}} or {\"start\":1,\"values\":[255,128]}");
+    return;
+  }
+
+  StaticJsonDocument<128> response;
+  response["success"] = true;
+  response["channels_set"] = channels_set;
+
+  String json;
+  serializeJson(response, json);
+  server.send(200, "application/json", json);
 }
 
 void sendError(int code, String message)

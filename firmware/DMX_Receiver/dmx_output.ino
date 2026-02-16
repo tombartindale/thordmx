@@ -12,9 +12,16 @@ void dmxTask(void* parameter) {
   while (true) {
     TickType_t start_tick = xTaskGetTickCount();
 
-    // Copy DMX data (thread-safe)
+    // Copy DMX data (thread-safe), applying start channel offset
     if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      memcpy(local_buffer, dmx_data, DMX_PACKET_SIZE);
+      uint16_t offset = config.dmx_start_channel - 1;
+      if (offset > 0) {
+        uint16_t channels_to_copy = DMX_PACKET_SIZE - offset;
+        memcpy(local_buffer, dmx_data + offset, channels_to_copy);
+        memset(local_buffer + channels_to_copy, 0, offset);
+      } else {
+        memcpy(local_buffer, dmx_data, DMX_PACKET_SIZE);
+      }
       xSemaphoreGive(dmx_mutex);
     }
 
