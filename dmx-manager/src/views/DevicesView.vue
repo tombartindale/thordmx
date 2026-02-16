@@ -84,6 +84,8 @@ async function handleRemoveSelected() {
 const showBatchConfigModal = ref(false)
 const batchConfigForm = ref({
   sacn_universe: null as number | null,
+  dmx_start_channel: null as number | null,
+  dmx_start_channel_increment: null as number | null,
   wifi_ssid: '',
   wifi_password: ''
 })
@@ -93,6 +95,8 @@ const batchActionResults = ref<Map<string, { success: boolean; error?: string }>
 function handleConfigureSelected() {
   batchConfigForm.value = {
     sacn_universe: null,
+    dmx_start_channel: null,
+    dmx_start_channel_increment: null,
     wifi_ssid: '',
     wifi_password: ''
   }
@@ -107,13 +111,19 @@ async function handleBatchConfigSubmit() {
   batchActionInProgress.value = true
   batchActionResults.value.clear()
 
-  for (const device of selectedOnline) {
+  for (let i = 0; i < selectedOnline.length; i++) {
+    const device = selectedOnline[i]
     try {
       const client = createDeviceClient(device)
       const updates: Record<string, any> = {}
 
       if (batchConfigForm.value.sacn_universe !== null) {
         updates.sacn_universe = batchConfigForm.value.sacn_universe
+      }
+      if (batchConfigForm.value.dmx_start_channel !== null) {
+        const increment = batchConfigForm.value.dmx_start_channel_increment ?? 0
+        const startCh = Math.min(batchConfigForm.value.dmx_start_channel + (i * increment), 512)
+        updates.dmx_start_channel = Math.max(1, startCh)
       }
       if (batchConfigForm.value.wifi_ssid) {
         updates.wifi_ssid = batchConfigForm.value.wifi_ssid
@@ -377,6 +387,38 @@ onUnmounted(() => {
           </div>
 
           <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1">DMX Start Channel</label>
+            <div class="flex gap-3">
+              <div class="flex-1">
+                <input
+                  v-model.number="batchConfigForm.dmx_start_channel"
+                  type="number"
+                  min="1"
+                  max="512"
+                  placeholder="Leave blank to keep current"
+                  :disabled="batchActionInProgress"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+                />
+              </div>
+              <div class="w-32">
+                <input
+                  v-model.number="batchConfigForm.dmx_start_channel_increment"
+                  type="number"
+                  min="0"
+                  max="512"
+                  placeholder="Increment"
+                  :disabled="batchActionInProgress || batchConfigForm.dmx_start_channel === null"
+                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+                  title="Auto-increment by this amount for each device"
+                />
+              </div>
+            </div>
+            <p v-if="batchConfigForm.dmx_start_channel !== null && batchConfigForm.dmx_start_channel_increment" class="text-xs text-gray-500 mt-1">
+              Channels: {{ devicesStore.selectedDevices.filter(d => d.isOnline).map((_, i) => Math.min(batchConfigForm.dmx_start_channel! + (i * (batchConfigForm.dmx_start_channel_increment ?? 0)), 512)).join(', ') }}
+            </p>
+          </div>
+
+          <div>
             <label class="block text-sm font-medium text-gray-400 mb-1">WiFi SSID</label>
             <input
               v-model="batchConfigForm.wifi_ssid"
@@ -424,7 +466,7 @@ onUnmounted(() => {
           <button
             v-if="batchActionResults.size === 0"
             @click="handleBatchConfigSubmit"
-            :disabled="batchActionInProgress || (!batchConfigForm.sacn_universe && !batchConfigForm.wifi_ssid)"
+            :disabled="batchActionInProgress || (!batchConfigForm.sacn_universe && batchConfigForm.dmx_start_channel === null && !batchConfigForm.wifi_ssid)"
             class="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white font-medium rounded-lg transition-colors"
           >
             {{ batchActionInProgress ? 'Applying...' : 'Apply to All' }}

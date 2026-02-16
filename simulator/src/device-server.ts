@@ -163,6 +163,43 @@ export class DeviceServer {
       });
     });
 
+    // GET /api/dmx
+    this.app.get('/api/dmx', (req: Request, res: Response) => {
+      const start = Math.max(1, Math.min(512, parseInt(req.query.start as string, 10) || 1));
+      let count = Math.max(1, Math.min(512, parseInt(req.query.count as string, 10) || 512));
+      if (start + count - 1 > 512) count = 513 - start;
+
+      res.json({
+        start,
+        count,
+        channels: this.device.getDmxData(start, count),
+      });
+    });
+
+    // POST /api/dmx
+    this.app.post('/api/dmx', (req: Request, res: Response) => {
+      let channelsSet = 0;
+
+      if (req.body.channels && typeof req.body.channels === 'object' && !Array.isArray(req.body.channels)) {
+        channelsSet = this.device.setDmxChannels(req.body.channels);
+      } else if (req.body.values && Array.isArray(req.body.values)) {
+        const start = req.body.start ?? 1;
+        channelsSet = this.device.setDmxValues(start, req.body.values);
+      }
+
+      if (channelsSet === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'No valid channels provided. Use {"channels":{"1":255}} or {"start":1,"values":[255,128]}',
+        });
+      }
+
+      res.json({
+        success: true,
+        channels_set: channelsSet,
+      });
+    });
+
     // 404 handler
     this.app.use((req: Request, res: Response) => {
       res.status(404).json({

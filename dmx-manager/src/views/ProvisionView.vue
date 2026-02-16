@@ -61,6 +61,7 @@ watch(() => wifiConfig.targetPassword, (val) => { serialConfig.targetPassword = 
 watch(() => wifiConfig.deviceNameTemplate, (val) => { serialConfig.deviceNameTemplate = val })
 watch(() => wifiConfig.startingNumber, (val) => { serialConfig.startingNumber = val })
 watch(() => wifiConfig.sacnUniverse, (val) => { serialConfig.sacnUniverse = val })
+watch(() => wifiConfig.dmxStartChannel, (val) => { serialConfig.dmxStartChannel = val })
 
 onMounted(async () => {
   if (hasElectronAPI.value) {
@@ -400,6 +401,16 @@ function getStepLabel(stepType: string): string {
               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
             />
           </div>
+          <div>
+            <label class="block text-gray-300 text-sm mb-2">DMX Start Channel</label>
+            <input
+              v-model.number="wifiConfig.dmxStartChannel"
+              type="number"
+              min="1"
+              max="512"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+            />
+          </div>
         </div>
       </div>
 
@@ -622,6 +633,17 @@ function getStepLabel(stepType: string): string {
                 type="number"
                 min="1"
                 max="63999"
+                :disabled="isWatching"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label class="block text-gray-300 text-sm mb-2">DMX Start Channel</label>
+              <input
+                v-model.number="serialConfig.dmxStartChannel"
+                type="number"
+                min="1"
+                max="512"
                 :disabled="isWatching"
                 class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               />

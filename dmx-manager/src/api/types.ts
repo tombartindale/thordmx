@@ -24,6 +24,7 @@ export interface DeviceStatus {
   ip_address: string
   mac_address: string
   sacn_universe: number
+  dmx_start_channel: number
   sacn_packets_received: number
   sacn_packets_errors: number
   sacn_source_ip?: string
@@ -41,12 +42,14 @@ export interface DeviceStatus {
 export interface DeviceConfig {
   device_name: string
   sacn_universe: number
+  dmx_start_channel: number
   wifi_ssid: string
 }
 
 export interface ConfigUpdate {
   device_name?: string
   sacn_universe?: number
+  dmx_start_channel?: number
   wifi_ssid?: string
   wifi_password?: string
 }

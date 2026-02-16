@@ -34,9 +34,12 @@ export class SimulatedDevice {
   private config: {
     deviceName: string;
     universe: number;
+    dmxStartChannel: number;
     wifiSsid: string;
     wifiPassword: string;
   };
+
+  private dmxData: Uint8Array = new Uint8Array(512);
 
   private state: SimulatorState;
   private firmwareVersion: string;
@@ -58,6 +61,7 @@ export class SimulatedDevice {
     this.config = {
       deviceName: deviceConfig.name || `THOR-BRIDGE-${lastFourHex}`,
       universe: deviceConfig.universe || 1,
+      dmxStartChannel: deviceConfig.dmxStartChannel || 1,
       wifiSsid: "SimulatedNetwork",
       wifiPassword: "simulated123",
     };
@@ -217,6 +221,7 @@ export class SimulatedDevice {
       ip_address: `127.0.0.1`,
       mac_address: this.mac,
       sacn_universe: this.config.universe,
+      dmx_start_channel: this.config.dmxStartChannel,
       sacn_packets_received: this.state.packetsReceived,
       sacn_packets_errors: this.state.packetsErrors,
       dmx_fps: this.state.dmxFps,
@@ -241,6 +246,7 @@ export class SimulatedDevice {
     return {
       device_name: this.config.deviceName,
       sacn_universe: this.config.universe,
+      dmx_start_channel: this.config.dmxStartChannel,
       wifi_ssid: this.config.wifiSsid,
     };
   }
@@ -271,6 +277,14 @@ export class SimulatedDevice {
       } else {
         this.config.universe = update.sacn_universe;
         rebootRequired = true;
+      }
+    }
+
+    if (update.dmx_start_channel !== undefined) {
+      if (update.dmx_start_channel < 1 || update.dmx_start_channel > 512) {
+        errors.push("DMX start channel must be 1-512");
+      } else {
+        this.config.dmxStartChannel = update.dmx_start_channel;
       }
     }
 
@@ -424,6 +438,35 @@ export class SimulatedDevice {
 
   isReceivingSacn(): boolean {
     return this.state.sacnReceiving;
+  }
+
+  getDmxData(start: number, count: number): number[] {
+    const s = Math.max(1, Math.min(512, start));
+    let c = Math.max(1, Math.min(512, count));
+    if (s + c - 1 > 512) c = 513 - s;
+    return Array.from(this.dmxData.slice(s - 1, s - 1 + c));
+  }
+
+  setDmxChannels(channels: Record<string, number>): number {
+    let count = 0;
+    for (const [key, value] of Object.entries(channels)) {
+      const ch = parseInt(key, 10);
+      if (ch >= 1 && ch <= 512) {
+        this.dmxData[ch - 1] = Math.max(0, Math.min(255, value));
+        count++;
+      }
+    }
+    return count;
+  }
+
+  setDmxValues(start: number, values: number[]): number {
+    const s = Math.max(1, start);
+    let count = 0;
+    for (let i = 0; i < values.length && (s - 1 + i) < 512; i++) {
+      this.dmxData[s - 1 + i] = Math.max(0, Math.min(255, values[i]));
+      count++;
+    }
+    return count;
   }
 
   destroy(): void {

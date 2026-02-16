@@ -56,6 +56,7 @@ void handleSerialStatus() {
 
   doc["mac_address"] = getMacAddress();
   doc["sacn_universe"] = config.sacn_universe;
+  doc["dmx_start_channel"] = config.dmx_start_channel;
   doc["sacn_packets_received"] = state.sacn_packets_received;
   doc["sacn_packets_errors"] = state.sacn_packets_errors;
   doc["uptime_seconds"] = (millis() - state.uptime_start) / 1000;
@@ -108,6 +109,17 @@ void handleSerialConfig(String json_str) {
       config.sacn_universe = universe;
     } else {
       Serial.println("ERROR:{\"message\":\"Universe must be 1-63999\"}");
+      return;
+    }
+  }
+
+  // Update DMX start channel
+  if (doc.containsKey("dmx_start_channel")) {
+    uint16_t start_ch = doc["dmx_start_channel"];
+    if (start_ch >= 1 && start_ch <= 512) {
+      config.dmx_start_channel = start_ch;
+    } else {
+      Serial.println("ERROR:{\"message\":\"DMX start channel must be 1-512\"}");
       return;
     }
   }

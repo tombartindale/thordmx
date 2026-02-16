@@ -60,7 +60,7 @@ async function handleIdentify(event: Event) {
 
 <template>
   <div
-    class="grid grid-cols-[auto_1fr_150px_70px_100px_70px_80px_auto] gap-4 px-4 py-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition-colors"
+    class="grid grid-cols-[auto_1fr_150px_70px_70px_100px_70px_80px_auto] gap-4 px-4 py-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition-colors"
     :class="{ 'bg-gray-800/50': isSelected }"
     @click="emit('click')"
   >
@@ -88,6 +88,11 @@ async function handleIdentify(event: Event) {
     <!-- Universe -->
     <div class="flex items-center text-sm text-gray-300">
       {{ device.universe }}
+    </div>
+
+    <!-- Start Channel -->
+    <div class="flex items-center text-sm text-gray-300">
+      {{ status?.dmx_start_channel ?? '—' }}
     </div>
 
     <!-- Firmware -->

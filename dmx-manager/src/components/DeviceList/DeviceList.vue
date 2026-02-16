@@ -10,7 +10,7 @@ const emit = defineEmits<{
 
 const devicesStore = useDevicesStore()
 const searchQuery = ref('')
-const sortField = ref<'name' | 'ip' | 'universe' | 'status' | 'signal'>('name')
+const sortField = ref<'name' | 'ip' | 'universe' | 'startChannel' | 'status' | 'signal'>('name')
 const sortDirection = ref<'asc' | 'desc'>('asc')
 const showOffline = ref(true)
 
@@ -45,6 +45,12 @@ const filteredDevices = computed(() => {
       case 'universe':
         comparison = a.universe - b.universe
         break
+      case 'startChannel': {
+        const chA = devicesStore.deviceStatuses.get(a.id)?.dmx_start_channel ?? 0
+        const chB = devicesStore.deviceStatuses.get(b.id)?.dmx_start_channel ?? 0
+        comparison = chA - chB
+        break
+      }
       case 'signal': {
         const rssiA = devicesStore.deviceStatuses.get(a.id)?.wifi_rssi ?? -100
         const rssiB = devicesStore.deviceStatuses.get(b.id)?.wifi_rssi ?? -100
@@ -135,7 +141,7 @@ function handleRefresh() {
     </div>
 
     <!-- Header row -->
-    <div class="grid grid-cols-[auto_1fr_150px_70px_100px_70px_80px_auto] gap-4 px-4 py-2 bg-gray-800 border-b border-gray-700 text-xs text-gray-400 tracking-wide">
+    <div class="grid grid-cols-[auto_1fr_150px_70px_70px_100px_70px_80px_auto] gap-4 px-4 py-2 bg-gray-800 border-b border-gray-700 text-xs text-gray-400 tracking-wide">
       <div class="w-6"></div>
       <button @click="toggleSort('name')" class="text-left hover:text-gray-200">
         Name {{ sortField === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
@@ -145,6 +151,9 @@ function handleRefresh() {
       </button>
       <button @click="toggleSort('universe')" class="text-left hover:text-gray-200">
         Universe {{ sortField === 'universe' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
+      </button>
+      <button @click="toggleSort('startChannel')" class="text-left hover:text-gray-200">
+        Start Ch {{ sortField === 'startChannel' ? (sortDirection === 'asc' ? '↑' : '↓') : '' }}
       </button>
       <div>Firmware</div>
       <button @click="toggleSort('signal')" class="text-left hover:text-gray-200">

@@ -35,6 +35,7 @@ export interface SerialDeviceStatus {
   wifi_ssid: string
   mac_address: string
   sacn_universe: number
+  dmx_start_channel: number
 }
 
 export interface SerialProvisioningConfig {
@@ -42,6 +43,7 @@ export interface SerialProvisioningConfig {
   wifi_ssid: string
   wifi_password: string
   sacn_universe: number
+  dmx_start_channel: number
 }
 
 export interface SerialProvisioningResult {
@@ -226,7 +228,8 @@ export class SerialProvisioningService extends EventEmitter {
                   device_name: config.device_name,
                   wifi_ssid: config.wifi_ssid,
                   wifi_password: config.wifi_password,
-                  sacn_universe: config.sacn_universe
+                  sacn_universe: config.sacn_universe,
+                  dmx_start_channel: config.dmx_start_channel
                 })
                 console.log(`[Serial] Sending config: CONFIG:${configJson}`)
                 port?.write(`CONFIG:${configJson}\n`)

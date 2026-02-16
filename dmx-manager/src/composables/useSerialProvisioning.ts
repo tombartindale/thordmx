@@ -15,6 +15,7 @@ export interface SerialDeviceStatus {
   wifi_ssid: string;
   mac_address: string;
   sacn_universe: number;
+  dmx_start_channel: number;
 }
 
 export interface SerialProvisioningConfig {
@@ -23,6 +24,7 @@ export interface SerialProvisioningConfig {
   deviceNameTemplate: string;
   startingNumber: number;
   sacnUniverse: number;
+  dmxStartChannel: number;
 }
 
 export interface SerialProvisioningResult {
@@ -47,6 +49,7 @@ export function useSerialProvisioning() {
     deviceNameTemplate: "DMX-Device-{n}",
     startingNumber: 1,
     sacnUniverse: 1,
+    dmxStartChannel: 1,
   });
 
   const hasElectronAPI = computed(() => {
@@ -190,6 +193,7 @@ export function useSerialProvisioning() {
           wifi_ssid: config.targetSsid,
           wifi_password: config.targetPassword,
           sacn_universe: config.sacnUniverse,
+          dmx_start_channel: config.dmxStartChannel,
         }
       );
       results.value.push(result);
@@ -225,6 +229,7 @@ export function useSerialProvisioning() {
         wifi_ssid: config.targetSsid,
         wifi_password: config.targetPassword,
         sacn_universe: config.sacnUniverse,
+        dmx_start_channel: config.dmxStartChannel,
       });
 
       if (result.success) {
