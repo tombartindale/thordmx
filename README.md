@@ -1,5 +1,7 @@
 # ThorDMX Bridge System
 
+> **Looking to build or set up a ThorDMX Bridge?** Check out the [User Documentation](https://tombartindale.github.io/thordmx/) for step-by-step guides on parts, assembly, firmware, and configuration.
+
 A complete solution for wirelessly bridging sACN (E1.31) lighting data to DMX512 fixtures. The system consists of ESP32-based hardware devices and cross-platform management software for deploying and managing fleets of DMX bridges in professional lighting environments.
 
 ## Overview
