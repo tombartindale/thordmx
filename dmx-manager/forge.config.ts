@@ -43,10 +43,12 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       name: "dmx-bridge-manager",
+      setupExe: "ThorDMX-Bridge-Manager-Setup.exe",
       setupIcon: "./public/icons/icon.ico",
     }),
     // new MakerZIP({}, ["darwin", "linux"]),
     new MakerDMG({
+      name: "ThorDMX-Bridge-Manager",
       icon: "./public/icons/icon.icns",
       format: "ULFO",
     }),
