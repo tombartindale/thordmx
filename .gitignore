@@ -29,3 +29,4 @@ release
 out
 bin
 obj
+.keystore
