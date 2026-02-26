@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build:
@@ -16,7 +16,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: "9.0.x"
 
       - name: Install MAUI workload
         run: dotnet workload install maui-android
@@ -24,8 +24,8 @@ jobs:
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'microsoft'
-          java-version: '17'
+          distribution: "microsoft"
+          java-version: "17"
 
       - name: Restore dependencies
         run: dotnet restore control_app/SacnController/SacnController.csproj
