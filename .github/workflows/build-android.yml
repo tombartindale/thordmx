@@ -36,7 +36,7 @@ jobs:
       - name: Publish signed APK
         run: |
           dotnet publish control_app/SacnController/SacnController.csproj \
-            -f net8.0-android \
+            -f net9.0-android \
             -c Release \
             -p:AndroidKeyStore=true \
             -p:AndroidSigningKeyStore=${{ github.workspace }}/keystore.jks \
