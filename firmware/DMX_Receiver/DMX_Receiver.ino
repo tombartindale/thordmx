@@ -117,6 +117,18 @@ void dmxTask(void *parameter);
 void ledTask(void *parameter);
 void serialTask(void *parameter);
 void onDMXFrame();
+// captive_portal.ino
+void handleCaptivePortal();
+void handleCaptivePortalSubmit();
+// serial_config.ino
+void processSerialCommand(String command);
+void handleSerialStatus();
+void handleSerialReboot();
+void handleSerialFactoryReset();
+void handleSerialConfig(String json_str);
+// wifi_manager.ino
+void startAPMode();
+void startMDNS();
 
 void setup()
 {

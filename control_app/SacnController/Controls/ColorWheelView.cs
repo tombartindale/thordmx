@@ -39,7 +39,7 @@ public class ColorWheelView : SKCanvasView
         var hueColors = new SKColor[13];
         for (int i = 0; i <= 12; i++)
         {
-            float hue = i * 30f;
+            float hue = (i * 30f + 90f) % 360f;
             hueColors[i] = SKColor.FromHsv(hue, 100, 100);
         }
         var huePositions = new float[13];
