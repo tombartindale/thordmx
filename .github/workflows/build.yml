@@ -1,12 +1,9 @@
-name: Build/release
+name: Build Desktop Manager
 
 on:
   push:
-    branches: [main]
     tags:
       - "v*"
-  pull_request:
-    branches: [main]
 
 jobs:
   build:
